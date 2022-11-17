@@ -28,21 +28,15 @@ function createSetter() {
   };
 }
 
-export function baseHandler(raw) {
-  return new Proxy(raw, {
-    get,
-    set,
-  });
-}
+export const baseHandler = {
+  get,
+  set,
+};
 
-export function readonlyHandler(raw) {
-  return new Proxy(raw, {
-    get: readonlyGet,
-    set(target, key, newValue, receiver) {
-      console.warn(
-        `${String(key)} can't be set, beacase ${target} is readonly.`
-      );
-      return true;
-    },
-  });
-}
+export const readonlyHandler = {
+  get: readonlyGet,
+  set(target, key, newValue, receiver) {
+    console.warn(`${String(key)} can't be set, beacase ${target} is readonly.`);
+    return true;
+  },
+};
