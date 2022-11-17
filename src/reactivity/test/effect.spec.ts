@@ -72,4 +72,32 @@ describe("reactivity/effect", () => {
     expect(foo).toBe(12);
     expect(r).toBe("foo");
   });
+
+  it("should allow nested effects", () => {
+    const obj = reactive({
+      foo: true,
+      bar: true,
+    });
+
+    let tmp1, tmp2;
+
+    const effectFn2 = vi.fn(() => {
+      console.log("fn2 trigger--");
+      tmp2 = obj.bar;
+    });
+
+    const effectFn1 = vi.fn(() => {
+      console.log("fn1 trigger--");
+      effect(effectFn2);
+      tmp1 = obj.foo;
+    });
+
+    effect(effectFn1);
+    expect(effectFn1).toHaveBeenCalledTimes(1);
+    expect(effectFn2).toHaveBeenCalledTimes(1);
+
+    obj.foo = false;
+    //  我们的期望是 foo的更新 会执行 effectFn1，但是实际的情况并非这样
+    expect(effectFn1).toHaveBeenCalledTimes(2);
+  });
 });

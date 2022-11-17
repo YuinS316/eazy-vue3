@@ -9,8 +9,13 @@ class ReactiveEffect {
 
   run() {
     cleanupEffect(this);
+    effectStack.push(this);
     activeEffect = this;
-    return this._fn();
+    let res = this._fn();
+    effectStack.pop();
+
+    activeEffect = effectStack[effectStack.length - 1];
+    return res;
   }
 }
 
@@ -65,6 +70,7 @@ export function trigger(target, key) {
 }
 
 let activeEffect: ReactiveEffect | null = null;
+let effectStack: ReactiveEffect[] = [];
 
 export function effect(fn) {
   const _effect = new ReactiveEffect(fn);
