@@ -1,9 +1,21 @@
+export interface ReactiveEffectOptions {
+  lazy?: boolean;
+  scheduler?: EffectScheduler;
+}
+
+export interface ReactiveEffectRunner<T = any> {
+  (): T;
+  effect: ReactiveEffect;
+}
+
+export type EffectScheduler = (...args: any[]) => any;
+
 class ReactiveEffect {
   private _fn: Function;
 
   public deps: Dep[] = [];
 
-  constructor(fn: Function) {
+  constructor(fn: Function, public scheduler: EffectScheduler | null = null) {
     this._fn = fn;
   }
 
@@ -72,7 +84,13 @@ export function trigger(target, key) {
     }
   });
 
-  depToRun.forEach((e) => e.run());
+  depToRun.forEach((e) => {
+    if (e.scheduler) {
+      e.scheduler();
+    } else {
+      e.run();
+    }
+  });
 }
 
 let activeEffect: ReactiveEffect | null = null;
@@ -80,9 +98,20 @@ let activeEffect: ReactiveEffect | null = null;
 //  用栈来存储当前激活的effect, 避免嵌套的时候effect不正确
 let effectStack: ReactiveEffect[] = [];
 
-export function effect(fn) {
+export function effect(
+  fn,
+  options?: ReactiveEffectOptions
+): ReactiveEffectRunner {
   const _effect = new ReactiveEffect(fn);
+
+  if (options) {
+    Object.assign(_effect, options);
+  }
+
   _effect.run();
 
-  return _effect.run.bind(_effect);
+  let runner = _effect.run.bind(_effect) as ReactiveEffectRunner;
+  runner.effect = _effect;
+
+  return runner;
 }

@@ -82,12 +82,12 @@ describe("reactivity/effect", () => {
     let tmp1, tmp2;
 
     const effectFn2 = vi.fn(() => {
-      console.log("fn2 trigger--");
+      // console.log("fn2 trigger--");
       tmp2 = obj.bar;
     });
 
     const effectFn1 = vi.fn(() => {
-      console.log("fn1 trigger--");
+      // console.log("fn1 trigger--");
       effect(effectFn2);
       tmp1 = obj.foo;
     });
@@ -111,5 +111,40 @@ describe("reactivity/effect", () => {
     counter.num = 4;
     expect(counter.num).toBe(5);
     expect(counterSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("scheduler", () => {
+    let dummy;
+    let run: any;
+    const scheduler = vi.fn(() => {
+      run = runner;
+    });
+    const obj = reactive({ foo: 1 });
+
+    // 1--  可传入配置 scheduler
+    const runner = effect(
+      () => {
+        dummy = obj.foo;
+      },
+      { scheduler }
+    );
+
+    // 2-- scheduler 不会先执行，而是传入effect的副作用函数先执行
+    expect(scheduler).not.toHaveBeenCalled();
+    expect(dummy).toBe(1);
+
+    // 3-- 依赖触发的时候，scheduler会被触发
+    // should be called on first trigger
+    obj.foo++;
+    expect(scheduler).toHaveBeenCalledTimes(1);
+    // should not run yet
+    expect(dummy).toBe(1);
+
+    // 4-- 手动调用的时候，传入的副作用会被触发
+    // manually run
+    run();
+
+    // should have run
+    expect(dummy).toBe(2);
   });
 });
