@@ -61,15 +61,23 @@ export function trigger(target, key) {
 
   let dep = depsMap.get(key);
 
-  const depToRun = new Set(dep);
-  depToRun.forEach((e) => e.run());
+  //  判断当前执行的是不是activeEffect，如果是的话就不要继续执行，会死循环
+  // const depToRun = new Set(dep);
+  // depToRun.forEach((e) => e.run());
 
-  // dep?.forEach((e) => {
-  //   e.run();
-  // });
+  const depToRun = new Set<ReactiveEffect>();
+  dep?.forEach((d) => {
+    if (d !== activeEffect) {
+      depToRun.add(d);
+    }
+  });
+
+  depToRun.forEach((e) => e.run());
 }
 
 let activeEffect: ReactiveEffect | null = null;
+
+//  用栈来存储当前激活的effect, 避免嵌套的时候effect不正确
 let effectStack: ReactiveEffect[] = [];
 
 export function effect(fn) {

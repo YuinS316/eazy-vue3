@@ -100,4 +100,16 @@ describe("reactivity/effect", () => {
     //  我们的期望是 foo的更新 会执行 effectFn1，但是实际的情况并非这样
     expect(effectFn1).toHaveBeenCalledTimes(2);
   });
+
+  it("should avoid implicit infinite recursive loops with itself", () => {
+    const counter = reactive({ num: 0 });
+
+    const counterSpy = vi.fn(() => counter.num++);
+    effect(counterSpy);
+    expect(counter.num).toBe(1);
+    expect(counterSpy).toHaveBeenCalledTimes(1);
+    counter.num = 4;
+    expect(counter.num).toBe(5);
+    expect(counterSpy).toHaveBeenCalledTimes(2);
+  });
 });
