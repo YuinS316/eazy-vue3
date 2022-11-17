@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { readonly } from "../reactive";
+import { readonly, isReadOnly } from "../reactive";
 import { effect } from "../effect";
 
 describe("readonly", () => {
   it("happy path", () => {
-    const origin = {
+    const original = {
       foo: 1,
     };
 
@@ -12,8 +12,10 @@ describe("readonly", () => {
       foo: 1,
     });
 
-    expect(origin).not.toBe(observed);
+    expect(original).not.toBe(observed);
     expect(observed.foo).toBe(1);
+    expect(isReadOnly(original)).toBe(false);
+    expect(isReadOnly(observed)).toBe(true);
   });
 
   it("should not trigger effects", () => {
