@@ -1,6 +1,7 @@
 export interface ReactiveEffectOptions {
   lazy?: boolean;
   scheduler?: EffectScheduler;
+  onStop?: Function;
 }
 
 export interface ReactiveEffectRunner<T = any> {
@@ -15,11 +16,14 @@ class ReactiveEffect {
 
   public deps: Dep[] = [];
 
+  onStop?: () => void;
+
   constructor(fn: Function, public scheduler: EffectScheduler | null = null) {
     this._fn = fn;
   }
 
   run() {
+    //  分支切换
     cleanupEffect(this);
     effectStack.push(this);
     activeEffect = this;
@@ -28,6 +32,13 @@ class ReactiveEffect {
 
     activeEffect = effectStack[effectStack.length - 1];
     return res;
+  }
+
+  stop() {
+    cleanupEffect(this);
+    if (this.onStop) {
+      this.onStop();
+    }
   }
 }
 
@@ -114,4 +125,8 @@ export function effect(
   runner.effect = _effect;
 
   return runner;
+}
+
+export function stop(runner: ReactiveEffectRunner) {
+  runner.effect.stop();
 }
