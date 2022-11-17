@@ -10,7 +10,7 @@ class ReactiveEffect {
   run() {
     cleanupEffect(this);
     activeEffect = this;
-    this._fn();
+    return this._fn();
   }
 }
 
@@ -69,4 +69,6 @@ let activeEffect: ReactiveEffect | null = null;
 export function effect(fn) {
   const _effect = new ReactiveEffect(fn);
   _effect.run();
+
+  return _effect.run.bind(_effect);
 }
