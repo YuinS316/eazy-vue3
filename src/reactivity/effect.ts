@@ -72,6 +72,9 @@ export function track(target, key) {
     depsMap.set(key, (dep = new Set()));
   }
 
+  //  如果已经收集过了，就不需要再次收集
+  if (dep.has(activeEffect)) return;
+
   //	双向收集，依赖收集副作用函数集合
   dep.add(activeEffect);
   //	副作用收集依赖

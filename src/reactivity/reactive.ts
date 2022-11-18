@@ -28,6 +28,6 @@ export function isReactive(raw) {
   return !!raw[ReactiveFlags.IS_REACTIVE];
 }
 
-export function isReadOnly(raw) {
+export function isReadonly(raw) {
   return !!raw[ReactiveFlags.IS_READONLY];
 }
