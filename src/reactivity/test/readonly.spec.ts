@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { readonly, isReadonly, isReactive } from "../reactive";
+import { readonly, isReadonly, isReactive, isProxy } from "../reactive";
 import { effect } from "../effect";
 
 describe("readonly", () => {
@@ -16,6 +16,8 @@ describe("readonly", () => {
     expect(observed.foo).toBe(1);
     expect(isReadonly(original)).toBe(false);
     expect(isReadonly(observed)).toBe(true);
+    expect(isProxy(original)).toBe(false);
+    expect(isProxy(observed)).toBe(true);
   });
 
   it("should not trigger effects", () => {
