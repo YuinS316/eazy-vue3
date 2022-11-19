@@ -1,4 +1,9 @@
-import { baseHandler, readonlyHandler } from "./baseHandlers";
+import {
+  baseHandler,
+  readonlyHandler,
+  shallowReactiveHandler,
+  shallowReadonlyHanlder,
+} from "./baseHandlers";
 
 export const enum ReactiveFlags {
   SKIP = "__v_skip",
@@ -12,8 +17,16 @@ export function reactive(raw) {
   return createReactiveObject(raw, baseHandler);
 }
 
+export function shallowReactive(raw) {
+  return createReactiveObject(raw, shallowReactiveHandler);
+}
+
 export function readonly(raw) {
   return createReactiveObject(raw, readonlyHandler);
+}
+
+export function shallowReadonly(raw) {
+  return createReactiveObject(raw, shallowReadonlyHanlder);
 }
 
 function createReactiveObject(raw, handler) {
@@ -30,4 +43,8 @@ export function isReactive(raw) {
 
 export function isReadonly(raw) {
   return !!raw[ReactiveFlags.IS_READONLY];
+}
+
+export function isShallow(raw) {
+  return !!raw[ReactiveFlags.IS_SHALLOW];
 }

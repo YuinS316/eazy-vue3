@@ -1,18 +1,23 @@
-import { isObject } from "@/shared";
+import { extend, isObject } from "@/shared";
 import { track, trigger } from "./effect";
 import { reactive, ReactiveFlags, readonly } from "./reactive";
 
 const get = createGetter();
 const set = createSetter();
 
-const readonlyGet = createGetter(true);
+const shallowReactiveGet = createGetter(false, true);
 
-function createGetter(isReadonly = false) {
+const readonlyGet = createGetter(true);
+const shallowReadonlyGet = createGetter(true, true);
+
+function createGetter(isReadonly = false, shallow = false) {
   return function get(target, key) {
     if (key === ReactiveFlags.IS_REACTIVE) {
       return !isReadonly;
     } else if (key === ReactiveFlags.IS_READONLY) {
       return isReadonly;
+    } else if (key === ReactiveFlags.IS_SHALLOW) {
+      return shallow;
     }
 
     const res = Reflect.get(target, key);
@@ -20,6 +25,10 @@ function createGetter(isReadonly = false) {
     if (!isReadonly) {
       // 依赖收集
       track(target, key);
+    }
+
+    if (shallow) {
+      return res;
     }
 
     if (isObject(res)) {
@@ -45,6 +54,10 @@ export const baseHandler = {
   set,
 };
 
+export const shallowReactiveHandler = extend({}, baseHandler, {
+  get: shallowReactiveGet,
+});
+
 export const readonlyHandler = {
   get: readonlyGet,
   set(target, key, newValue, receiver) {
@@ -52,3 +65,7 @@ export const readonlyHandler = {
     return true;
   },
 };
+
+export const shallowReadonlyHanlder = extend({}, readonlyHandler, {
+  get: shallowReadonlyGet,
+});
