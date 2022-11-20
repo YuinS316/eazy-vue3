@@ -67,7 +67,7 @@ function has(target: object, key: string): boolean {
 }
 
 /**
- * @description 处理便利key的情况
+ * @description 处理遍历key的情况
  * @param target
  */
 function ownKeys(target: object) {
@@ -75,11 +75,30 @@ function ownKeys(target: object) {
   return Reflect.ownKeys(target);
 }
 
+/**
+ * @description 处理属性被删除的情况
+ * @param target
+ * @param key
+ */
+function deleteProperty(target, key) {
+  //  检查被删除的key是不是对象自己的
+  const hadKey = hasOwn(target, key);
+
+  const res = Reflect.deleteProperty(target, key);
+
+  if (res && hadKey) {
+    trigger(target, key, TriggerOpTypes.DELETE);
+  }
+
+  return res;
+}
+
 export const baseHandler = {
   get,
   set,
   has,
   ownKeys,
+  deleteProperty,
 };
 
 export const shallowReactiveHandler = extend({}, baseHandler, {
@@ -89,6 +108,10 @@ export const shallowReactiveHandler = extend({}, baseHandler, {
 export const readonlyHandler = {
   get: readonlyGet,
   set(target, key, newValue, receiver) {
+    console.warn(`${String(key)} can't be set, beacase ${target} is readonly.`);
+    return true;
+  },
+  deleteProperty(target, key) {
     console.warn(`${String(key)} can't be set, beacase ${target} is readonly.`);
     return true;
   },

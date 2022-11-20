@@ -121,7 +121,8 @@ export function trigger(target, key, type: TriggerOpTypes) {
   });
 
   //  优化点: 区分是添加属性还是修改属性，修改属性就不需要遍历
-  if (type === TriggerOpTypes.ADD) {
+  //  添加和删除都影响遍历，所以都需要去触发
+  if (type === TriggerOpTypes.ADD || type === TriggerOpTypes.DELETE) {
     //  取得因遍历key而收集的副作用函数
     let iterateEffects = depsMap.get(ITERATE_KEY);
     iterateEffects?.forEach((e) => {

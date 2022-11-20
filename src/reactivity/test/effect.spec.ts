@@ -209,8 +209,8 @@ describe("reactivity/effect", () => {
     effect(() => (dummy = "prop" in obj));
 
     expect(dummy).toBe(true);
-    // delete obj.prop;
-    // expect(dummy).toBe(false);
+    delete obj.prop;
+    expect(dummy).toBe(false);
     obj.prop = 12;
     expect(dummy).toBe(true);
   });
@@ -228,7 +228,7 @@ describe("reactivity/effect", () => {
     expect(dummy).toBe(3);
     numbers.num2 = 4;
     expect(dummy).toBe(7);
-    // delete numbers.num1
-    // expect(dummy).toBe(4)
+    delete numbers.num1;
+    expect(dummy).toBe(4);
   });
 });
