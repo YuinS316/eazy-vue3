@@ -1,3 +1,5 @@
+import { TrackOpTypes, TriggerOpTypes } from "./operations";
+
 export interface ReactiveEffectOptions {
   lazy?: boolean;
   scheduler?: EffectScheduler;
@@ -8,6 +10,13 @@ export interface ReactiveEffectRunner<T = any> {
   (): T;
   effect: ReactiveEffect;
 }
+
+export const ITERATE_KEY = Symbol();
+
+let activeEffect: ReactiveEffect | null = null;
+
+//  用栈来存储当前激活的effect, 避免嵌套的时候effect不正确
+let effectStack: ReactiveEffect[] = [];
 
 export type EffectScheduler = (...args: any[]) => any;
 
@@ -57,6 +66,12 @@ type Dep = Set<ReactiveEffect>;
 type KeyToDepMap = Map<any, Dep>;
 let targetMap = new WeakMap<any, KeyToDepMap>();
 
+/**
+ * @description 收集依赖
+ * @param target
+ * @param key
+ * @returns
+ */
 export function track(target, key) {
   //	刚开始的时候activeEffect可能为null
   if (!activeEffect) return;
@@ -81,24 +96,42 @@ export function track(target, key) {
   activeEffect.deps.push(dep);
 }
 
-export function trigger(target, key) {
+/**
+ * @description 触发依赖
+ * @param target
+ * @param key
+ * @param type 类型，区分是set 还是 add
+ * @returns
+ */
+export function trigger(target, key, type: TriggerOpTypes) {
   let depsMap = targetMap.get(target);
   if (!depsMap) return;
 
-  let dep = depsMap.get(key);
+  let effects = depsMap.get(key);
 
   //  判断当前执行的是不是activeEffect，如果是的话就不要继续执行，会死循环
   // const depToRun = new Set(dep);
   // depToRun.forEach((e) => e.run());
 
-  const depToRun = new Set<ReactiveEffect>();
-  dep?.forEach((d) => {
-    if (d !== activeEffect) {
-      depToRun.add(d);
+  const effectsToRun = new Set<ReactiveEffect>();
+  effects?.forEach((e) => {
+    if (e !== activeEffect) {
+      effectsToRun.add(e);
     }
   });
 
-  depToRun.forEach((e) => {
+  //  优化点: 区分是添加属性还是修改属性，修改属性就不需要遍历
+  if (type === TriggerOpTypes.ADD) {
+    //  取得因遍历key而收集的副作用函数
+    let iterateEffects = depsMap.get(ITERATE_KEY);
+    iterateEffects?.forEach((e) => {
+      if (e !== activeEffect) {
+        effectsToRun.add(e);
+      }
+    });
+  }
+
+  effectsToRun.forEach((e) => {
     if (e.scheduler) {
       e.scheduler();
     } else {
@@ -106,11 +139,6 @@ export function trigger(target, key) {
     }
   });
 }
-
-let activeEffect: ReactiveEffect | null = null;
-
-//  用栈来存储当前激活的effect, 避免嵌套的时候effect不正确
-let effectStack: ReactiveEffect[] = [];
 
 export function effect(
   fn,

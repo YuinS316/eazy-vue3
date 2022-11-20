@@ -7,16 +7,19 @@ describe("reactive", () => {
       foo: 1,
     };
 
-    const observed = reactive({
-      foo: 1,
-    });
+    const observed = reactive(original);
 
     expect(original).not.toBe(observed);
-    expect(observed.foo).toBe(1);
     expect(isReactive(original)).toBe(false);
     expect(isReactive(observed)).toBe(true);
     expect(isProxy(original)).toBe(false);
     expect(isProxy(observed)).toBe(true);
+    // get
+    expect(observed.foo).toBe(1);
+    // has
+    expect("foo" in observed).toBe(true);
+    // ownKeys
+    expect(Object.keys(observed)).toEqual(["foo"]);
   });
 
   it("nested reactives", () => {

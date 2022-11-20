@@ -1,6 +1,7 @@
-import { extend, isObject } from "@/shared";
-import { track, trigger } from "./effect";
+import { extend, hasOwn, isObject } from "@/shared";
+import { track, trigger, ITERATE_KEY } from "./effect";
 import { reactive, ReactiveFlags, readonly } from "./reactive";
+import { TriggerOpTypes } from "./operations";
 
 const get = createGetter();
 const set = createSetter();
@@ -41,17 +42,44 @@ function createGetter(isReadonly = false, shallow = false) {
 
 function createSetter() {
   return function set(target, key, newValue, receiver) {
+    const type = hasOwn(target, key) ? TriggerOpTypes.SET : TriggerOpTypes.ADD;
+
     const res = Reflect.set(target, key, newValue, receiver);
 
     // 触发依赖
-    trigger(target, key);
+    trigger(target, key, type);
     return res;
   };
+}
+
+/**
+ * @description 处理 key in obj 的读取情况
+ *
+ * @param target
+ * @param key
+ * @returns
+ */
+function has(target: object, key: string): boolean {
+  track(target, key);
+  const res = Reflect.has(target, key);
+
+  return res;
+}
+
+/**
+ * @description 处理便利key的情况
+ * @param target
+ */
+function ownKeys(target: object) {
+  track(target, ITERATE_KEY);
+  return Reflect.ownKeys(target);
 }
 
 export const baseHandler = {
   get,
   set,
+  has,
+  ownKeys,
 };
 
 export const shallowReactiveHandler = extend({}, baseHandler, {

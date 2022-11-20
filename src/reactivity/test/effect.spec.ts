@@ -192,4 +192,43 @@ describe("reactivity/effect", () => {
     stop(runner);
     expect(onStop).toHaveBeenCalled();
   });
+
+  it("should observe nested properties", () => {
+    let dummy;
+    const counter = reactive({ nested: { num: 0 } });
+    effect(() => (dummy = counter.nested.num));
+
+    expect(dummy).toBe(0);
+    counter.nested.num = 8;
+    expect(dummy).toBe(8);
+  });
+
+  it("should observe has operations", () => {
+    let dummy;
+    const obj = reactive({ prop: "value" });
+    effect(() => (dummy = "prop" in obj));
+
+    expect(dummy).toBe(true);
+    // delete obj.prop;
+    // expect(dummy).toBe(false);
+    obj.prop = 12;
+    expect(dummy).toBe(true);
+  });
+
+  it("should observe enumeration", () => {
+    let dummy = 0;
+    const numbers = reactive({ num1: 3 });
+    effect(() => {
+      dummy = 0;
+      for (let key in numbers) {
+        dummy += numbers[key];
+      }
+    });
+
+    expect(dummy).toBe(3);
+    numbers.num2 = 4;
+    expect(dummy).toBe(7);
+    // delete numbers.num1
+    // expect(dummy).toBe(4)
+  });
 });
