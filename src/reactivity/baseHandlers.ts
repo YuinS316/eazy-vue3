@@ -105,7 +105,7 @@ function deleteProperty(target, key) {
   return res;
 }
 
-export const baseHandler = {
+export const mutableHandler = {
   get,
   set,
   has,
@@ -113,7 +113,7 @@ export const baseHandler = {
   deleteProperty,
 };
 
-export const shallowReactiveHandler = extend({}, baseHandler, {
+export const shallowReactiveHandler = extend({}, mutableHandler, {
   get: shallowReactiveGet,
 });
 
