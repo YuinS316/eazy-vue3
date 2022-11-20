@@ -1,4 +1,4 @@
-import { extend, hasOwn, isObject } from "@/shared";
+import { extend, hasChanged, hasOwn, isObject } from "@/shared";
 import { track, trigger, ITERATE_KEY } from "./effect";
 import { reactive, ReactiveFlags, readonly } from "./reactive";
 import { TriggerOpTypes } from "./operations";
@@ -19,6 +19,8 @@ function createGetter(isReadonly = false, shallow = false) {
       return isReadonly;
     } else if (key === ReactiveFlags.IS_SHALLOW) {
       return shallow;
+    } else if (key === ReactiveFlags.RAW) {
+      return target;
     }
 
     const res = Reflect.get(target, key);
@@ -42,12 +44,22 @@ function createGetter(isReadonly = false, shallow = false) {
 
 function createSetter() {
   return function set(target, key, newValue, receiver) {
+    let oldVal = target[key];
+
     const type = hasOwn(target, key) ? TriggerOpTypes.SET : TriggerOpTypes.ADD;
 
     const res = Reflect.set(target, key, newValue, receiver);
 
-    // 触发依赖
-    trigger(target, key, type);
+    //  优化点：当给代理对象新增属性，但是该对象的原型有该属性时，会触发多次
+    //  receiver 永远指向代理对象，target则不一定是被代理对象。
+    //  通过上面的这个特性，访问raw属性 再判断返回的对象即可
+    if (target === receiver[ReactiveFlags.RAW]) {
+      //  优化点：旧值与新值完全一样的时候，不需要触发依赖
+      if (hasChanged(oldVal, newValue)) {
+        // 触发依赖
+        trigger(target, key, type);
+      }
+    }
     return res;
   };
 }

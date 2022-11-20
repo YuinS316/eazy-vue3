@@ -231,4 +231,43 @@ describe("reactivity/effect", () => {
     delete numbers.num1;
     expect(dummy).toBe(4);
   });
+
+  it("should not observe set operations without a value change", () => {
+    let hasDummy, getDummy;
+    const obj = reactive({ prop: "value" });
+
+    const getSpy = vi.fn(() => (getDummy = obj.prop));
+    const hasSpy = vi.fn(() => (hasDummy = "prop" in obj));
+    effect(getSpy);
+    effect(hasSpy);
+
+    expect(getDummy).toBe("value");
+    expect(hasDummy).toBe(true);
+    obj.prop = "value";
+    expect(getSpy).toHaveBeenCalledTimes(1);
+    expect(hasSpy).toHaveBeenCalledTimes(1);
+    expect(getDummy).toBe("value");
+    expect(hasDummy).toBe(true);
+  });
+
+  it("should observe properties on the prototype chain", () => {
+    const obj = {};
+    const proto = { bar: 1 };
+    const child = reactive(obj);
+    const parent = reactive(proto);
+
+    Object.setPrototypeOf(child, parent);
+
+    let fn = vi.fn(() => {
+      child.bar;
+    });
+
+    effect(() => {
+      fn();
+    });
+
+    expect(fn).toBeCalledTimes(1);
+    child.bar = 2;
+    expect(fn).toBeCalledTimes(2);
+  });
 });
