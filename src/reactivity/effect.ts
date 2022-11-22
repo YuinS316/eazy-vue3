@@ -103,7 +103,7 @@ export function track(target, key) {
  * @param type 类型，区分是set 还是 add
  * @returns
  */
-export function trigger(target, key, type: TriggerOpTypes) {
+export function trigger(target, key, type: TriggerOpTypes, newValue?) {
   let depsMap = targetMap.get(target);
   if (!depsMap) return;
 
@@ -128,6 +128,31 @@ export function trigger(target, key, type: TriggerOpTypes) {
     iterateEffects?.forEach((e) => {
       if (e !== activeEffect) {
         effectsToRun.add(e);
+      }
+    });
+  }
+
+  //  当操作类型是Add且对象是数组时，需要取出与length相关的副作用函数执行
+  if (type === TriggerOpTypes.ADD && Array.isArray(target)) {
+    let lengthEffects = depsMap.get("length");
+    lengthEffects?.forEach((e) => {
+      if (e !== activeEffect) {
+        effectsToRun.add(e);
+      }
+    });
+  }
+
+  //  如果直接修改length，需要把收集到的索引（即key）大于等于length的元素的
+  //  相关索引取出并执行其副作用函数
+  if (Array.isArray(target) && key === "length") {
+    const newLength = Number(newValue);
+    depsMap.forEach((effects, key) => {
+      if (key >= newLength) {
+        effects.forEach((e) => {
+          if (e !== activeEffect) {
+            effectsToRun.add(e);
+          }
+        });
       }
     });
   }

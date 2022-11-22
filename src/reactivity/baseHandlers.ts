@@ -46,7 +46,18 @@ function createSetter() {
   return function set(target, key, newValue, receiver) {
     let oldVal = target[key];
 
-    const type = hasOwn(target, key) ? TriggerOpTypes.SET : TriggerOpTypes.ADD;
+    let isArray = Array.isArray(target);
+
+    //  判断是否是数组
+    //  数组：判断访问的下标是否超过数组的长度
+    //  对象：判断访问的键是否存在对象当中
+    const type = isArray
+      ? +key < target.length
+        ? TriggerOpTypes.SET
+        : TriggerOpTypes.ADD
+      : hasOwn(target, key)
+      ? TriggerOpTypes.SET
+      : TriggerOpTypes.ADD;
 
     const res = Reflect.set(target, key, newValue, receiver);
 
@@ -57,7 +68,7 @@ function createSetter() {
       //  优化点：旧值与新值完全一样的时候，不需要触发依赖
       if (hasChanged(oldVal, newValue)) {
         // 触发依赖
-        trigger(target, key, type);
+        trigger(target, key, type, newValue);
       }
     }
     return res;

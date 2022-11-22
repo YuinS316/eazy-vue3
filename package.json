@@ -1,5 +1,5 @@
 {
-  "name": "micro-vue",
+  "name": "eazy-vue",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -14,5 +14,8 @@
     "esbuild": "^0.15.14",
     "typescript": "^4.9.3",
     "vitest": "^0.25.2"
+  },
+  "devDependencies": {
+    "vite": "^3.2.4"
   }
 }
