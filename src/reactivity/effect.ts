@@ -20,7 +20,7 @@ let effectStack: ReactiveEffect[] = [];
 
 export type EffectScheduler = (...args: any[]) => any;
 
-class ReactiveEffect {
+export class ReactiveEffect {
   private _fn: Function;
 
   public deps: Dep[] = [];
@@ -151,7 +151,9 @@ export function effect(
     Object.assign(_effect, options);
   }
 
-  _effect.run();
+  if (!options?.lazy) {
+    _effect.run();
+  }
 
   let runner = _effect.run.bind(_effect) as ReactiveEffectRunner;
   runner.effect = _effect;

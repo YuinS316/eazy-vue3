@@ -113,6 +113,26 @@ describe("reactivity/effect", () => {
     expect(counterSpy).toHaveBeenCalledTimes(2);
   });
 
+  it("lazy", () => {
+    const obj = reactive({ foo: 1 });
+    let dummy;
+
+    //  1-- 可传入配置lazy
+    //  2-- 返回runner
+    const runner = effect(() => (dummy = obj.foo), { lazy: true });
+
+    //  3-- 不会立即执行
+    expect(dummy).toBe(undefined);
+
+    //  4-- 可手动调用
+    expect(runner()).toBe(1);
+    expect(dummy).toBe(1);
+
+    //  5-- 依赖会触发副作用
+    obj.foo = 2;
+    expect(dummy).toBe(2);
+  });
+
   it("scheduler", () => {
     let dummy;
     let run: any;
