@@ -77,4 +77,19 @@ describe("reactivity/reactive/Array", () => {
     array.length = 0;
     expect(total).toBe(0);
   });
+
+  test("cloned reactive Array should point to observed values", () => {
+    const original = [{ foo: 1 }];
+    const observed = reactive(original);
+    const clone = observed.slice();
+    expect(isReactive(clone[0])).toBe(true);
+    expect(clone[0]).not.toBe(original[0]);
+    expect(clone[0]).toBe(observed[0]);
+  });
+
+  test.skip("pass orginal value should get observed", () => {
+    const obj = {};
+    const observed = reactive([obj]);
+    expect(observed.includes(obj)).toBe(true);
+  });
 });
