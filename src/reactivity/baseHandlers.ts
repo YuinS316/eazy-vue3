@@ -25,7 +25,7 @@ function createGetter(isReadonly = false, shallow = false) {
 
     const res = Reflect.get(target, key);
 
-    if (!isReadonly) {
+    if (!isReadonly && typeof key !== "symbol") {
       // 依赖收集
       track(target, key);
     }
@@ -94,7 +94,8 @@ function has(target: object, key: string): boolean {
  * @param target
  */
 function ownKeys(target: object) {
-  track(target, ITERATE_KEY);
+  //  对于数组：无论是添加元素还是修改数组长度都是修改了length
+  track(target, Array.isArray(target) ? "length" : ITERATE_KEY);
   return Reflect.ownKeys(target);
 }
 

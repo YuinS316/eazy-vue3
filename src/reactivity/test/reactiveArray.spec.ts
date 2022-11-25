@@ -41,4 +41,40 @@ describe("reactivity/reactive/Array", () => {
     observed.length = 0;
     expect(dummy).toBe(undefined);
   });
+
+  test("track length on for ... in iteration", () => {
+    const array = reactive([1]);
+    let length = "";
+    effect(() => {
+      length = "";
+      for (const key in array) {
+        length += key;
+      }
+    });
+    expect(length).toBe("0");
+    array.push(1);
+    expect(length).toBe("01");
+    array[100] = "bar";
+    expect(length).toBe("01100");
+    array.length = 0;
+    expect(length).toBe("");
+  });
+
+  test("track length on for ... of iteration", () => {
+    const array = reactive([1]);
+    let total = 0;
+    effect(() => {
+      total = 0;
+      for (const val of array) {
+        total += val;
+      }
+    });
+    expect(total).toBe(1);
+    array.push(2);
+    expect(total).toBe(3);
+    array[2] = 100;
+    expect(total).toBe(103);
+    array.length = 0;
+    expect(total).toBe(0);
+  });
 });
