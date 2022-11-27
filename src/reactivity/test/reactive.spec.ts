@@ -48,4 +48,22 @@ describe("reactive", () => {
     expect(toRaw(observed)).toBe(original);
     expect(toRaw(original)).toBe(original);
   });
+
+  test("nested obj", () => {
+    const original = {
+      foo: {},
+    };
+
+    const observed = reactive(original);
+    const foo = reactive(original.foo);
+
+    expect(foo).toBe(observed.foo);
+  });
+
+  test("observing already observed value should return same Proxy", () => {
+    const original = { foo: 1 };
+    const observed = reactive(original);
+    const observed2 = reactive(observed);
+    expect(observed2).toBe(observed);
+  });
 });

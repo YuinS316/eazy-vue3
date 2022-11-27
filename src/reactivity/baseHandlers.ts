@@ -2,6 +2,7 @@ import { extend, hasChanged, hasOwn, isObject } from "@/shared";
 import { track, trigger, ITERATE_KEY } from "./effect";
 import { reactive, ReactiveFlags, readonly } from "./reactive";
 import { TriggerOpTypes } from "./operations";
+import { isRef } from "./ref";
 
 const get = createGetter();
 const set = createSetter();
@@ -34,6 +35,10 @@ function createGetter(isReadonly = false, shallow = false) {
       return res;
     }
 
+    if (isRef(res)) {
+      return res.value;
+    }
+
     if (isObject(res)) {
       return isReadonly ? readonly(res) : reactive(res);
     }
@@ -44,7 +49,7 @@ function createGetter(isReadonly = false, shallow = false) {
 
 function createSetter() {
   return function set(target, key, newValue, receiver) {
-    let oldVal = target[key];
+    let oldValue = target[key];
 
     let isArray = Array.isArray(target);
 
@@ -66,7 +71,7 @@ function createSetter() {
     //  通过上面的这个特性，访问raw属性 再判断返回的对象即可
     if (target === receiver[ReactiveFlags.RAW]) {
       //  优化点：旧值与新值完全一样的时候，不需要触发依赖
-      if (hasChanged(oldVal, newValue)) {
+      if (hasChanged(oldValue, newValue)) {
         // 触发依赖
         trigger(target, key, type, newValue);
       }

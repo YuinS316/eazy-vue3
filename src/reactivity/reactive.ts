@@ -97,6 +97,9 @@ export function toRaw(observed) {
   return raw ? toRaw(raw) : observed;
 }
 
+export const toReactive = <T extends unknown>(value: T): T =>
+  isObject(value) ? reactive(value) : value;
+
 /**
  * @description 判断是否是reactive
  */
