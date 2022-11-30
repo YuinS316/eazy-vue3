@@ -1,6 +1,7 @@
 import { isObject } from "@/shared";
+import { VNode } from "./vnode";
 
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode: VNode) {
   const instance = {
     vnode,
     type: vnode.type,
