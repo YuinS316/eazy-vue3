@@ -1,6 +1,12 @@
 import { isArray, isObject, isString } from "@/shared";
 import { createComponentInstance, setupComponent } from "./component";
-import { VNode } from "./vnode";
+import { VNode, VNodeArrayChildren } from "./vnode";
+
+export interface RendererNode {
+  [key: string]: any;
+}
+
+export interface RendererElement extends RendererNode {}
 
 export function render(vnode: VNode, container) {
   patch(vnode, container);
@@ -31,12 +37,19 @@ function mountElement(vnode: VNode, container) {
   if (isString(children)) {
     el.textContent = children;
   } else if (isArray(children)) {
-    children.forEach((v) => {
-      patch(v as VNode, el);
-    });
+    mountChildren(children, el);
   }
 
   container.appendChild(el);
+}
+
+function mountChildren(
+  children: VNodeArrayChildren,
+  container: RendererElement
+) {
+  children.forEach((v) => {
+    patch(v as VNode, container);
+  });
 }
 
 function processComponent(vnode: VNode, container) {
