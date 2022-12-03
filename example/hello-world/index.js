@@ -1,7 +1,11 @@
 import { createApp, h } from "../../lib/index.js";
 
 const App = {
-  setup() {},
+  setup() {
+    return {
+      msg: "eazy-vue",
+    };
+  },
 
   render() {
     return h(
@@ -12,6 +16,7 @@ const App = {
       [
         h("div", { class: "red" }, "hello "),
         h("div", { class: "blue" }, "world"),
+        h("div", {}, this.msg),
       ]
     );
   },

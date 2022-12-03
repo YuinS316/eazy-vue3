@@ -66,6 +66,6 @@ function mountComponent(vnode: VNode, container) {
 }
 
 function setupRenderEffect(instance, container) {
-  const subtree = instance.render();
+  const subtree = instance.render.call(instance.proxy);
   patch(subtree, container);
 }

@@ -21,6 +21,7 @@ export interface VNode<ExtraProps = { [key: string]: any }> {
   type: VNodeTypes;
   props: (VNodeProps & ExtraProps) | null;
   children: VNodeNormalizedChildren;
+  setup?: any;
 }
 
 export function createVNode(type, props?, children?): VNode {
