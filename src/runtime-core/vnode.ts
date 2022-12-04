@@ -22,9 +22,13 @@ export interface VNode<ExtraProps = { [key: string]: any }> {
   props: (VNodeProps & ExtraProps) | null;
   children: VNodeNormalizedChildren;
   setup?: any;
+  render?: Function;
+
+  //  根元素的真实节点
+  el?: Record<string, any>;
 }
 
-export function createVNode(type, props?, children?): VNode {
+export function createVNode(type: VNodeTypes, props?, children?): VNode {
   const vnode = {
     type,
     props,

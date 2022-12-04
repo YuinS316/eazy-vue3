@@ -1,4 +1,5 @@
 import { isObject } from "@/shared";
+import { PublicInstanceProxyHandlers } from "./componentPublicInstance";
 import { VNode } from "./vnode";
 
 export type Data = Record<string, unknown>;
@@ -7,6 +8,7 @@ export interface ComponentInternalInstance {
   vnode: VNode;
   type: VNode["type"];
   setupState: Data | null;
+  render: Function | null;
 
   //  render中通过this访问的都会通过这里
   proxy: Data | null;
@@ -17,6 +19,7 @@ export function createComponentInstance(vnode: VNode) {
     vnode,
     type: vnode.type,
     setupState: null,
+    render: null,
     proxy: null,
   };
 
@@ -39,23 +42,14 @@ function setupStatefulComponent(instance: ComponentInternalInstance) {
   if (setup) {
     const setupResult = setup();
 
-    instance.proxy = new Proxy(
-      {},
-      {
-        get(target, key) {
-          const { setupState } = instance;
-          if (setupState && key in setupState) {
-            return setupState[key as string];
-          }
-        },
-      }
-    );
+    //  通过this访问的，都会挂载到instance.proxy上
+    instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers);
 
     handleSetupResult(instance, setupResult);
   }
 }
 
-function handleSetupResult(instance, setupResult) {
+function handleSetupResult(instance: ComponentInternalInstance, setupResult) {
   if (isObject(setupResult)) {
     instance.setupState = setupResult;
   }
@@ -63,9 +57,9 @@ function handleSetupResult(instance, setupResult) {
   finishComponentSetup(instance);
 }
 
-function finishComponentSetup(instance) {
+function finishComponentSetup(instance: ComponentInternalInstance) {
   const Component = instance.type;
-  if (Component.render) {
+  if (typeof Component !== "string" && Component.render) {
     instance.render = Component.render;
   }
 }

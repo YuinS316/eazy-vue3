@@ -8,6 +8,7 @@ const App = {
   },
 
   render() {
+    window._this = this;
     return h(
       "div",
       {
