@@ -13,6 +13,9 @@ const App = {
       "div",
       {
         id: "hello",
+        onClick() {
+          console.log("click");
+        },
       },
       [
         h("div", { class: "red" }, "hello "),

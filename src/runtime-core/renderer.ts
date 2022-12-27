@@ -37,8 +37,15 @@ function mountElement(vnode: VNode, container: RendererElement) {
 
   vnode.el = el;
 
+  const isOn = (key: string) => /^on[A-Z]/.test(key);
+
   for (const key in props) {
-    el.setAttribute(key, props[key]);
+    if (isOn(key)) {
+      const event = key.slice(2).toLowerCase();
+      el.addEventListener(event, props[key]);
+    } else {
+      el.setAttribute(key, props[key]);
+    }
   }
 
   if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
