@@ -60,6 +60,7 @@ function cleanupEffect(effectFn: ReactiveEffect) {
     let dep = effectFn.deps[i];
     dep.delete(effectFn);
   }
+  effectFn.deps.length = 0;
 }
 
 type Dep = Set<ReactiveEffect>;
