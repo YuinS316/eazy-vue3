@@ -1,3 +1,4 @@
+import { hasOwn } from "@/shared";
 import { ComponentInternalInstance } from "./component";
 
 export interface ComponentRenderContext {
@@ -17,10 +18,21 @@ export const publicPropertiesMap: PublicPropertiesMap = {
 
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get({ _: instance }: ComponentRenderContext, key: string) {
-    const { setupState } = instance;
-    if (setupState && key in setupState) {
+    const { setupState, props } = instance;
+
+    if (props && hasOwn(props, key)) {
+      return props[key];
+    } else if (setupState && hasOwn(setupState, key)) {
       return setupState[key as string];
     }
+
+    // if (props && key in props) {
+    //   return props[key];
+    // }
+
+    // if (setupState && key in setupState) {
+    //   return setupState[key as string];
+    // }
 
     const publicGetter = publicPropertiesMap[key];
 

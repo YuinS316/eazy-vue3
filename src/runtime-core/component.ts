@@ -1,4 +1,6 @@
+import { shallowReadonly } from "@/reactivity/reactive";
 import { isObject } from "@/shared";
+import { initProps } from "./componentProps";
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance";
 import { VNode } from "./vnode";
 
@@ -12,6 +14,7 @@ export interface ComponentInternalInstance {
 
   //  render中通过this访问的都会通过这里
   proxy: Data | null;
+  props: Data | null;
 }
 
 export function createComponentInstance(vnode: VNode) {
@@ -21,6 +24,7 @@ export function createComponentInstance(vnode: VNode) {
     setupState: null,
     render: null,
     proxy: null,
+    props: null,
   };
 
   return instance;
@@ -28,19 +32,23 @@ export function createComponentInstance(vnode: VNode) {
 
 export function setupComponent(instance: ComponentInternalInstance) {
   //  TODO: initProps
+  initProps(instance, instance.vnode.props || {});
 
   //  TODO: initSlots
 
+  //  处理setup状态和props的访问
   setupStatefulComponent(instance);
 }
 
 function setupStatefulComponent(instance: ComponentInternalInstance) {
   const Component = instance.type as VNode;
 
+  const props = instance.props;
+
   const { setup } = Component;
 
   if (setup) {
-    const setupResult = setup();
+    const setupResult = setup(shallowReadonly(props));
 
     //  通过this访问的，都会挂载到instance.proxy上
     instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers);

@@ -137,11 +137,15 @@ export const shallowReactiveHandler = extend({}, mutableHandler, {
 export const readonlyHandler = {
   get: readonlyGet,
   set(target, key, newValue, receiver) {
-    console.warn(`${String(key)} can't be set, beacase ${target} is readonly.`);
+    console.warn(
+      `property: ${String(key)} can't be set, beacase ${target} is readonly.`
+    );
     return true;
   },
   deleteProperty(target, key) {
-    console.warn(`${String(key)} can't be set, beacase ${target} is readonly.`);
+    console.warn(
+      `property: ${String(key)} can't be set, beacase ${target} is readonly.`
+    );
     return true;
   },
 };

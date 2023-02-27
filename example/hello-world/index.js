@@ -1,5 +1,18 @@
 import { createApp, h } from "../../lib/index.js";
 
+const Foo = {
+  setup(props) {
+    console.log("props---", props);
+
+    //  不可设置
+    props.count++;
+  },
+
+  render() {
+    return h("div", {}, "count is " + this.count);
+  },
+};
+
 const App = {
   setup() {
     return {
@@ -17,11 +30,7 @@ const App = {
           console.log("click");
         },
       },
-      [
-        h("div", { class: "red" }, "hello "),
-        h("div", { class: "blue" }, "world"),
-        h("div", {}, this.msg),
-      ]
+      [h("p", {}, "from App"), h(Foo, { count: 1 })]
     );
   },
 };
