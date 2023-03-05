@@ -52,7 +52,7 @@ function createRenderer(options) {
    * @param n2 新的节点
    * @param container 要挂载的容器
    */
-  function patch(n1, n2, container) {
+  function patch(n1, n2, container, anchor) {
     //  节点类型不匹配
     if (n1 && n1.type !== n2.type) {
       unmount(n1);
@@ -64,7 +64,7 @@ function createRenderer(options) {
     if (typeof type === "string") {
       if (!n1) {
         //  n1不存在，表示挂载
-        mountElement(n2, container);
+        mountElement(n2, container, anchor);
       } else {
         //  n1存在，表示打补丁
         patchElement(n1, n2, container);
@@ -108,7 +108,7 @@ function createRenderer(options) {
    * @param vnode
    * @param container
    */
-  function mountElement(vnode, container) {
+  function mountElement(vnode, container, anchor) {
     // const el = document.createElement(vnode.type);
     // const el = createElement(vnode.type);
 
@@ -120,7 +120,7 @@ function createRenderer(options) {
       setElementText(el, vnode.children);
     } else if (Array.isArray(vnode.children)) {
       vnode.children.forEach((child) => {
-        patch(null, child, el);
+        patch(null, child, el, anchor);
       });
     }
 
@@ -132,7 +132,7 @@ function createRenderer(options) {
     }
 
     // container.appendChild(el);
-    insert(el, container);
+    insert(el, container, anchor);
   }
 
   /**
@@ -186,7 +186,9 @@ function createRenderer(options) {
       setElementText(container, n2.children);
     } else if (Array.isArray(n2.children)) {
       if (Array.isArray(n1.children)) {
-        //  新旧节点都是children，需要diff算法
+        // violentDiff(n1, n2, container);
+        // simpleDiff(n1, n2, container);
+        twoSideDiff(n1, n2, container);
       } else {
         //  此时旧节点是文本节点或者空节点，这时候内容清空再循环把新节点挂上去即可
         setElementText(container, "");
@@ -200,6 +202,188 @@ function createRenderer(options) {
         setElementText(container, "");
       }
       //  如果本来就是空的，不用管
+    }
+  }
+
+  /**
+   * 暴力diff
+   *
+   * @param {*} n1
+   * @param {*} n2
+   * @param {*} container
+   */
+  function violentDiff(n1, n2, container) {
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
+
+    const oldLen = oldChildren.length;
+    const newLen = newChildren.length;
+    const commonLength = Math.min(oldLen, newLen);
+
+    //  取双方较短的一方，新节点多出来就挂载，旧节点多出来的就卸载
+    for (let i = 0; i < commonLength; i++) {
+      patch(oldChildren[i], newChildren[i], container);
+    }
+
+    if (newLen > oldLen) {
+      for (let i = commonLength; i < newLen; i++) {
+        patch(null, newChildren[i], container);
+      }
+    } else if (oldLen > newLen) {
+      for (let i = commonLength; i < oldLen; i++) {
+        unmount(oldChildren[i]);
+      }
+    }
+  }
+
+  /**
+   * 简单diff
+   *
+   * @param {*} n1
+   * @param {*} n2
+   * @param {*} container
+   */
+  function simpleDiff(n1, n2, container) {
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
+
+    //  用来记录寻找过程中遇到的最大索引值
+    let lastIndex = 0;
+    for (let i = 0; i < newChildren.length; i++) {
+      const newVNode = newChildren[i];
+
+      //  判断是否能在旧的vdom中找到，找不到说明新的vdom有新节点
+      let find = false;
+      for (let j = 0; j < oldChildren.length; j++) {
+        const oldVNode = oldChildren[j];
+
+        if (newVNode.key === oldVNode.key) {
+          find = true;
+          //  复用节点，更新内容
+          patch(oldVNode, newVNode, container);
+
+          //  复用节点，移动位置
+          if (j < lastIndex) {
+            const prevNode = newChildren[i - 1];
+            if (prevNode) {
+              const anchor = prevNode.el.nextSibling;
+              insert(newVNode.el, container, anchor);
+            }
+          } else {
+            lastIndex = j;
+          }
+          break;
+        }
+      }
+
+      //  新的vdom中有新的节点
+      if (!find) {
+        const prevNode = newChildren[i - 1];
+        let anchor = null;
+        if (prevNode) {
+          anchor = prevNode.el.nextSibling;
+        } else {
+          anchor = container.firstChild;
+        }
+        patch(null, newVNode, container, anchor);
+      }
+    }
+
+    //  反向的从旧节点里面找新节点，没有的话说明是需要移除的
+    for (let i = 0; i < oldChildren.length; i++) {
+      const oldVnode = oldChildren[i];
+
+      const has = newChildren.find((v) => v.key === oldVnode.key);
+
+      if (!has) {
+        unmount(oldVnode);
+      }
+    }
+  }
+
+  /**
+   * 双端diff
+   *
+   * @param {*} n1
+   * @param {*} n2
+   * @param {*} container
+   */
+  function twoSideDiff(n1, n2, container) {
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
+
+    //  索引
+    let oldStartIndex = 0;
+    let oldEndIndex = oldChildren.length - 1;
+    let newStartIndex = 0;
+    let newEndIndex = newChildren.length - 1;
+
+    //  节点
+    let oldStartVNode = oldChildren[oldStartIndex];
+    let oldEndVNode = oldChildren[oldEndIndex];
+    let newStartVNode = newChildren[newStartIndex];
+    let newEndVNode = newChildren[newEndIndex];
+
+    while (oldStartIndex <= oldEndIndex && newStartIndex <= newEndIndex) {
+      //  下面我们有处理过的节点会被设为undefined，这时继续移动即可
+
+      if (!oldStartVNode) {
+        oldStartVNode = oldChildren[++oldStartIndex];
+      } else if (!oldEndVNode) {
+        oldEndVNode = oldChildren[--oldEndIndex];
+      }
+      //  首尾对比
+      else if (oldStartVNode.key === newStartVNode.key) {
+        patch(oldStartVNode, newStartVNode, container);
+
+        oldStartVNode = oldChildren[++oldStartIndex];
+        newStartVNode = newChildren[++newStartIndex];
+      } else if (oldEndVNode.key === newEndVNode.key) {
+        patch(oldEndVNode, newEndVNode, container);
+
+        oldEndVNode = oldChildren[--oldEndIndex];
+        newEndVNode = newChildren[--newEndIndex];
+      } else if (oldStartVNode.key === newEndVNode.key) {
+        patch(oldStartVNode, newEndVNode, container);
+
+        //  把旧的头部节点，插入到旧的尾部节点后面
+        insert(oldStartVNode.el, container, oldEndVNode.el.nextSibling);
+
+        oldStartVNode = oldChildren[++oldStartIndex];
+        newEndVNode = newChildren[--newEndIndex];
+      } else if (oldEndVNode.key === newStartVNode.key) {
+        //  旧节点由尾节点成为头节点
+
+        //  更新内容
+        patch(oldEndVNode, newStartVNode, container);
+
+        //  移动节点，把旧的尾部节点，插入到旧的头部节点前面
+        insert(oldEndVNode.el, container, oldStartVNode.el);
+
+        //  移动完成后，更新索引值和节点
+        oldEndVNode = oldChildren[--oldEndIndex];
+        newStartVNode = newChildren[++newStartIndex];
+      } else {
+        //  上面4种情况只是理想情况下的，更多时候是双端找不到，这时候需要处理
+        const idxInOld = oldChildren.findIndex(
+          (node) => node.key === newStartVNode.key
+        );
+
+        //  为什么不考虑0，因为0已经是上面4种情况中的头相等
+        if (idxInOld > 0) {
+          const vnodeInOld = oldChildren[idxInOld];
+          patch(vnodeInOld, newStartVNode, container);
+
+          //  插入到旧的头部节点之前
+          insert(vnodeInOld.el, container, oldStartVNode.el);
+
+          //  此处节点对应的真实dom已经移动，设为undefined
+          oldChildren[idxInOld] = undefined;
+
+          //  最后更新newStartIndex到下一个位置
+          newStartVNode = newChildren[++newStartIndex];
+        }
+      }
     }
   }
 
@@ -359,38 +543,57 @@ const vnode = {
   type: "div",
   children: [
     {
-      type: "div",
-      props: {
-        onClick() {
-          console.log("父元素 click");
-        },
-      },
-      children: [
-        {
-          type: "p",
-          children: "children",
-          props: {
-            onClick() {
-              flag = true;
-              console.log("子元素 click");
-            },
-            // onMousedown: [
-            //   () => {
-            //     console.log("onMousedown--1");
-            //   },
-            //   () => {
-            //     console.log("onMousedown--2");
-            //   },
-            // ],
-          },
-        },
-      ],
+      type: "p",
+      key: 1,
+      children: "1",
+    },
+    {
+      type: "p",
+      key: 2,
+      children: "2",
+    },
+    {
+      type: "p",
+      key: 3,
+      children: "3",
+    },
+    {
+      type: "p",
+      key: 4,
+      children: "4",
+    },
+  ],
+};
+
+const vnode2 = {
+  type: "div",
+  children: [
+    {
+      type: "p",
+      key: 2,
+      children: "B",
+    },
+    {
+      type: "p",
+      key: 4,
+      children: "D",
+    },
+    {
+      type: "p",
+      key: 1,
+      children: "A",
+    },
+    {
+      type: "p",
+      key: 3,
+      children: "C",
     },
   ],
 };
 
 renderer.render(vnode, document.querySelector("#app"));
 
-// setTimeout(() => {
-//   renderer.render(null, document.querySelector("#app"));
-// }, 5000);
+setTimeout(() => {
+  console.log("change--");
+  renderer.render(vnode2, document.querySelector("#app"));
+}, 3000);
