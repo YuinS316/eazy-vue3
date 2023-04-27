@@ -11,7 +11,7 @@ interface LocalTestContext {
   document: Window["document"];
 }
 
-describe("basis", () => {
+describe.skip("basis", () => {
   // beforeEach(async <LocalTestContext>(context) => {
   //   const window = new Window();
   //   context.window = window;

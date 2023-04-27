@@ -188,7 +188,8 @@ function createRenderer(options) {
       if (Array.isArray(n1.children)) {
         // violentDiff(n1, n2, container);
         // simpleDiff(n1, n2, container);
-        twoSideDiff(n1, n2, container);
+        // twoSideDiff(n1, n2, container);
+        fastDiff(n1, n2, container);
       } else {
         //  此时旧节点是文本节点或者空节点，这时候内容清空再循环把新节点挂上去即可
         setElementText(container, "");
@@ -387,9 +388,197 @@ function createRenderer(options) {
     }
   }
 
+  /**
+   * 快速diff
+   *
+   * @param {*} n1
+   * @param {*} n2
+   * @param {*} container
+   */
+  function fastDiff(n1, n2, container) {
+    const oldChildren = n1.children;
+    const newChildren = n2.children;
+
+    //  更新相同的前置节点
+    let j = 0;
+    let oldVNode = oldChildren[j];
+    let newVNode = newChildren[j];
+
+    // 往后遍历，一直找到key不同的节点为止
+    while (oldVNode.key === newVNode.key) {
+      //  还是要更新内容的
+      patch(oldVNode, newVNode, container);
+      j++;
+      oldVNode = oldChildren[j];
+      newVNode = newChildren[j];
+    }
+
+    //  更新相同的后置节点
+    let oldEnd = oldChildren.length - 1;
+    let newEnd = newChildren.length - 1;
+
+    oldVNode = oldChildren[oldEnd];
+    newVNode = newChildren[newEnd];
+
+    //  从后往前遍历，直到遇到key不同的事情
+    while (oldVNode.key === newVNode.key) {
+      //  还是要更新内容的
+      patch(oldVNode, newVNode, container);
+      oldEnd--;
+      newEnd--;
+      oldVNode = oldChildren[oldEnd];
+      newVNode = newChildren[newEnd];
+    }
+
+    //  新节点多出来的节点，需要挂载
+    if (j > oldEnd && j <= newEnd) {
+      const anchorIndex = newEnd + 1;
+      //  有可能newEnd指向尾节点，这时候直接为null就好，不需要anchor
+      const anchor =
+        anchorIndex < newChildren.length ? newChildren[anchorIndex].el : null;
+      while (j <= newEnd) {
+        patch(null, newChildren[j++], container, anchor);
+      }
+    } else if (j > newEnd && j <= oldEnd) {
+      // 旧节点多出来，需要卸载
+      while (j <= oldEnd) {
+        unmount(oldChildren[j++]);
+      }
+    } else {
+      //  判断是否还有可以移动的节点，这是一种非理想的情况
+
+      //  计算出新节点数组中还有多少个节点没有处理
+      const count = newEnd - j + 1;
+      //  source用来存储新的一组节点在旧的的一组节点中的索引
+      const source = new Array(count).fill(-1);
+
+      //  起始索引都是j
+      const oldStart = j;
+      const newStart = j;
+
+      //  是否需要移动节点
+      let moved = false;
+      //  表示遍历旧的一组节点中遇到的最大索引值
+      let pos = 0;
+      //  表示更新过的节点数量
+      let patched = 0;
+
+      //  以下这段能跑，但是时间复杂度有点高，我们完全可以通过将索引记录下来的方式降低时间复杂度
+      // for(let i = oldStart; i <= oldEnd; i++) {
+      //   const oldVNode = oldChildren[i];
+      //   for (let k = newStart; k <= newEnd; k++) {
+      //     const newVNode = newChildren[k];
+      //     if (oldVNode.key === newVNode.key) {
+      //       patch(oldVNode, newVNode, container);
+      //       source[k - newStart] = i;
+      //     }
+      //   }
+      // }
+
+      //  存储key在新节点中的索引
+      const keyIndex = {};
+      for (let i = newStart; i <= newEnd; i++) {
+        keyIndex[newChildren[i].key] = i;
+      }
+
+      //  遍历之后做patch更新，以及卸载操作
+      for (let i = oldStart; i <= oldEnd; i++) {
+        oldVNode = oldChildren[i];
+
+        if (patched <= count) {
+          //  找到在在新的一组节点中具有相同key的位置
+          const k = keyIndex[oldVNode.key];
+          if (k !== undefined) {
+            newVNode = newChildren[k];
+
+            patch(oldVNode, newVNode, container);
+            patched++;
+
+            source[k - newStart] = i;
+
+            if (k < pos) {
+              moved = true;
+            } else {
+              pos = k;
+            }
+          } else {
+            //  没找到就移除掉
+            unmount(oldVNode);
+          }
+        } else {
+          //  如果更新过的节点数量大于需要更新的节点，则卸载多余的节点
+          unmount(oldVNode);
+        }
+      }
+
+      //  moved为true，表示需要进行dom移动操作
+      if (moved) {
+        const seq = getSequence(source);
+      }
+    }
+  }
+
   function hydrate(vnode, container) {}
 
   return { render, hydrate };
+}
+
+/**
+ * 最长递增子序列
+ *
+ * @param {number[]} arr 索引数组
+ */
+function getSequence(arr) {
+  const p = [];
+  // 在arr至少有一项的情况下，结果起码包含第一个
+  const result = [0];
+
+  let i, j, start, end, mid;
+
+  const len = arr.length;
+  for (i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      // j 是result的最后一项
+      j = result[result.length - 1];
+      if (arr[i] > arr[j]) {
+        //  p记录当前下前一项的索引值
+        p[i] = j;
+        //  当前项比最后一项还大，直接push到数组里
+        result.push(i);
+        continue;
+      }
+
+      //  二分查找与arrI最接近的值
+      start = 0;
+      end = result.length - 1;
+
+      while (start < end) {
+        mid = (start + end) >> 1;
+        if (arrI > arr[result[mid]]) {
+          start = mid + 1;
+        } else {
+          end = mid;
+        }
+      }
+
+      if (arrI < arr[result[start]]) {
+        if (start > 0) {
+          p[i] = result[start - 1];
+        }
+        result[start] = i;
+      }
+    }
+  }
+
+  start = result.length;
+  end = result[start - 1];
+  while (start-- > 0) {
+    result[start] = end;
+    end = p[end];
+  }
+
+  return result;
 }
 
 /**
@@ -537,8 +726,6 @@ const Comment = Symbol();
 
 const Fragment = Symbol();
 
-let flag = false;
-
 const vnode = {
   type: "div",
   children: [
@@ -552,11 +739,11 @@ const vnode = {
       key: 2,
       children: "2",
     },
-    {
-      type: "p",
-      key: 3,
-      children: "3",
-    },
+    // {
+    //   type: "p",
+    //   key: 3,
+    //   children: "3",
+    // },
     {
       type: "p",
       key: 4,
@@ -570,30 +757,264 @@ const vnode2 = {
   children: [
     {
       type: "p",
-      key: 2,
-      children: "B",
-    },
-    {
-      type: "p",
-      key: 4,
-      children: "D",
-    },
-    {
-      type: "p",
       key: 1,
       children: "A",
+    },
+    {
+      type: "p",
+      key: 2,
+      children: "B",
     },
     {
       type: "p",
       key: 3,
       children: "C",
     },
+    {
+      type: "p",
+      key: 4,
+      children: "D",
+    },
   ],
 };
 
-renderer.render(vnode, document.querySelector("#app"));
+/**
+ * 检验是否符合
+ *
+ * @param {string} expect
+ */
+function check(expect, name) {
+  let realInnerHTML = document.querySelector("#app").innerHTML;
 
-setTimeout(() => {
-  console.log("change--");
-  renderer.render(vnode2, document.querySelector("#app"));
-}, 3000);
+  if (expect === realInnerHTML) {
+    console.log(`---- ${name}测试开始 ----`);
+    console.log("校验通过");
+  } else {
+    console.error("校验失败");
+  }
+  console.log(`---- ${name}测试结束 ----`);
+}
+
+function clear() {
+  renderer.render(null, document.querySelector("#app"));
+}
+
+/**
+ * 前置节点 + 后置 + 新增
+ */
+function happyPath() {
+  const oldVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "1",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "2",
+      },
+      // {
+      //   type: "p",
+      //   key: 3,
+      //   children: "3",
+      // },
+      {
+        type: "p",
+        key: 4,
+        children: "4",
+      },
+    ],
+  };
+
+  const newVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "A",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "B",
+      },
+      {
+        type: "p",
+        key: 3,
+        children: "C",
+      },
+      {
+        type: "p",
+        key: 4,
+        children: "D",
+      },
+    ],
+  };
+
+  renderer.render(oldVNode, document.querySelector("#app"));
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("change--");
+      renderer.render(newVNode, document.querySelector("#app"));
+
+      check(`<div><p>A</p><p>B</p><p>C</p><p>D</p></div>`, "测试前置和后置");
+      resolve();
+    }, 3000);
+  });
+}
+
+/**
+ * 新的vnode少了节点的情况
+ */
+function removeMore() {
+  const oldVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "1",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "2",
+      },
+      {
+        type: "p",
+        key: 3,
+        children: "3",
+      },
+      {
+        type: "p",
+        key: 4,
+        children: "4",
+      },
+    ],
+  };
+
+  const newVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "A",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "B",
+      },
+      // {
+      //   type: "p",
+      //   key: 3,
+      //   children: "C",
+      // },
+      {
+        type: "p",
+        key: 4,
+        children: "D",
+      },
+    ],
+  };
+
+  renderer.render(oldVNode, document.querySelector("#app"));
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("change--");
+      renderer.render(newVNode, document.querySelector("#app"));
+
+      check(`<div><p>A</p><p>B</p><p>D</p></div>`, "测试旧节点中有多的");
+      resolve();
+    }, 3000);
+  });
+}
+
+/**
+ * 新的vnode多了节点的情况
+ */
+function mountMore() {
+  const oldVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "1",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "2",
+      },
+      // {
+      //   type: "p",
+      //   key: 3,
+      //   children: "3",
+      // },
+      {
+        type: "p",
+        key: 4,
+        children: "4",
+      },
+    ],
+  };
+
+  const newVNode = {
+    type: "div",
+    children: [
+      {
+        type: "p",
+        key: 1,
+        children: "A",
+      },
+      {
+        type: "p",
+        key: 2,
+        children: "B",
+      },
+      {
+        type: "p",
+        key: 3,
+        children: "C",
+      },
+      {
+        type: "p",
+        key: 4,
+        children: "D",
+      },
+    ],
+  };
+
+  renderer.render(oldVNode, document.querySelector("#app"));
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("change--");
+      renderer.render(newVNode, document.querySelector("#app"));
+
+      check(
+        `<div><p>A</p><p>B</p><p>C</p><p>D</p></div>`,
+        "测试新节点中有多的"
+      );
+      resolve();
+    }, 3000);
+  });
+}
+
+async function main() {
+  await happyPath();
+  clear();
+  await removeMore();
+  clear();
+  await mountMore();
+}
+
+main();
