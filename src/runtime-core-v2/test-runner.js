@@ -2,6 +2,8 @@ const cases = [];
 const beforeEachCb = [];
 const afterEachCb = [];
 
+let isLock = false;
+
 export function runner(unitName) {
   let successNums = 0;
   let failNums = 0;
@@ -48,12 +50,22 @@ export const afterEach = (cb) => {
  * @param {string} name
  * @param {Function} cb
  */
-export const it = (name, cb) => {
+export function it(name, cb) {
+  if (isLock) {
+    return;
+  }
   cases.push({
     name,
     cb,
   });
+}
+
+it.only = function (name, cb) {
+  it(name, cb);
+  isLock = true;
 };
+
+it.skip = function (name, cb) {};
 
 /**
  *
