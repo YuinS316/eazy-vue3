@@ -585,7 +585,7 @@ function normalizeClass(cls) {
   if (Array.isArray(cls)) {
     let str = "";
     cls.forEach((key) => {
-      str += normalizeClass(key);
+      str += normalizeClass(key) + " ";
     });
     return str;
   } else if (typeof cls === "string") {
@@ -632,7 +632,7 @@ export const renderer = createRenderer({
     if (key === "class") {
       // 性能上来说 el.className > classList.add > el.setAttribute
 
-      el.className = nextValue || "";
+      el.className = normalizeClass(nextValue) || "";
     } else if (isEvent) {
       // const eventName = key.slice(2).toLowerCase();
 
@@ -699,11 +699,11 @@ export const renderer = createRenderer({
   },
 });
 
-const Text = Symbol();
+export const Text = Symbol();
 
-const Comment = Symbol();
+export const Comment = Symbol();
 
-const Fragment = Symbol();
+export const Fragment = Symbol();
 
 /**
  * 最长递增子序列

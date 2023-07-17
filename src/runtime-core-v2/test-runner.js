@@ -1,6 +1,14 @@
 const cases = [];
 const beforeEachCb = [];
 const afterEachCb = [];
+const spyMap = new WeakMap();
+
+//  清除
+function cleanup() {
+  cases.length = 0;
+  beforeEachCb.length = 0;
+  afterEachCb.length = 0;
+}
 
 export function runner(unitName) {
   let runCases = cases.filter((c) => c.options.skip !== true);
@@ -26,7 +34,7 @@ export function runner(unitName) {
 
     try {
       cb();
-      console.log("结果：测试通过");
+      console.log(" | > 结果：测试通过");
       successNums++;
     } catch (error) {
       console.error(error);
@@ -42,6 +50,8 @@ export function runner(unitName) {
 
   console.log(`======== ${unitName} end ========`);
   console.log(`共成功用例 ${successNums} / ${total}`);
+  cleanup();
+  console.log("\n");
 }
 
 export const beforeEach = (cb) => {
@@ -133,31 +143,77 @@ const isEqual = (source, target) => {
   }
 };
 
+export const vi = {
+  fn(cb) {
+    if (!spyMap[cb]) {
+      spyMap[cb] = 0;
+    }
+    return function (...args) {
+      spyMap[cb]++;
+      cb(...args);
+    };
+  },
+};
+
 /**
  *
  * @param {any} value
  */
 export const expect = (value) => {
+  //  是否开启not
+  let isSetNot = false;
+
   return {
+    get not() {
+      isSetNot = true;
+      return this;
+    },
     toBe(val) {
-      if (value === val) {
-        console.log("pass");
-        return true;
-      } else {
-        throw new Error(`expect ${val} but got ${value}`);
+      if (!isSetNot && value !== val) {
+        throw new Error(`expect "${val}" but got "${value}"`);
+      } else if (isSetNot && value === val) {
+        throw new Error(`expect not to be "${val}" but got "${value}"`);
       }
     },
     toContain(val) {
       if (typeof value === "string" || Array.isArray(value)) {
-        if (!value.includes(val)) {
-          throw new Error(`expect ${value} contains ${val} but not`);
+        if (!isSetNot && !value.includes(val)) {
+          throw new Error(`expect "${value}" contains "${val}" but not`);
+        } else if (isSetNot && value.includes(val)) {
+          throw new Error(`expect "${value}" should not contains "${val}"`);
         }
+      } else {
+        throw new Error(`toContain should used in type string or array`);
       }
     },
     toEqual(val) {
       const flag = isEqual(value, val);
-      if (!flag) {
+      if (!isSetNot && !flag) {
         throw new Error(`expect ${val} but got ${value}`);
+      } else if (isSetNot && flag) {
+        throw new Error(
+          `expect not to be equal to "${val}" but "${value}" does`
+        );
+      }
+    },
+    toHaveBeenCalled() {
+      const callTimes = spyMap[value] || 0;
+      if (!isSetNot && callTimes <= 0) {
+        throw new Error(`expect function called but not`);
+      } else if (isSetNot && callTimes > 0) {
+        throw new Error(`expect function not to be called but it does`);
+      }
+    },
+    toHaveBeenCalledTimes(times) {
+      const callTimes = spyMap[value] || 0;
+      if (!isSetNot && callTimes !== times) {
+        throw new Error(
+          `expect function called "${times}" times but called "${callTimes}" times actually`
+        );
+      } else if (isSetNot && callTimes === times) {
+        throw new Error(
+          `expect function not to be called "${times}" times but it called "${callTimes}" times actually`
+        );
       }
     },
   };
