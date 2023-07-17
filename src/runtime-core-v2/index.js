@@ -391,6 +391,8 @@ function createRenderer(options) {
   /**
    * 快速diff
    *
+   * @description 尽可能的找到多相同的部分
+   *
    * @param {*} n1
    * @param {*} n2
    * @param {*} container
@@ -404,9 +406,14 @@ function createRenderer(options) {
     let oldVNode = oldChildren[j];
     let newVNode = newChildren[j];
 
-    // 往后遍历，一直找到key不同的节点为止
-    while (oldVNode.key === newVNode.key) {
-      //  还是要更新内容的
+    let commonLength =
+      oldChildren.length < newChildren.length
+        ? oldChildren.length
+        : newChildren.length;
+
+    //  向右遍历，直到遇到key不同的节点
+    while (oldVNode.key === newVNode.key && j < commonLength - 1) {
+      //  更新节点
       patch(oldVNode, newVNode, container);
       j++;
       oldVNode = oldChildren[j];
@@ -416,13 +423,11 @@ function createRenderer(options) {
     //  更新相同的后置节点
     let oldEnd = oldChildren.length - 1;
     let newEnd = newChildren.length - 1;
-
     oldVNode = oldChildren[oldEnd];
     newVNode = newChildren[newEnd];
 
-    //  从后往前遍历，直到遇到key不同的事情
-    while (oldVNode.key === newVNode.key) {
-      //  还是要更新内容的
+    while (oldVNode.key === newVNode.key && oldEnd > 0 && newEnd > 0) {
+      //  更新节点
       patch(oldVNode, newVNode, container);
       oldEnd--;
       newEnd--;
@@ -430,90 +435,122 @@ function createRenderer(options) {
       newVNode = newChildren[newEnd];
     }
 
-    //  新节点多出来的节点，需要挂载
+    //  判断是否有新节点需要挂载
     if (j > oldEnd && j <= newEnd) {
+      //  此时旧节点已经遍历完,剩下新节点需要挂载
       const anchorIndex = newEnd + 1;
-      //  有可能newEnd指向尾节点，这时候直接为null就好，不需要anchor
-      const anchor =
-        anchorIndex < newChildren.length ? newChildren[anchorIndex].el : null;
+      let anchor;
+
+      //  选取尾坐标的后一位作为锚点，但是可能尾坐标后一位是空的
+      if (anchorIndex >= newChildren.length + 1) {
+        anchor = null;
+      } else {
+        anchor = newChildren[anchorIndex].el;
+      }
+
       while (j <= newEnd) {
         patch(null, newChildren[j++], container, anchor);
       }
     } else if (j > newEnd && j <= oldEnd) {
-      // 旧节点多出来，需要卸载
+      //  判断是否有旧节点需要卸载
       while (j <= oldEnd) {
         unmount(oldChildren[j++]);
       }
     } else {
-      //  判断是否还有可以移动的节点，这是一种非理想的情况
-
-      //  计算出新节点数组中还有多少个节点没有处理
+      //  上述都是理想化的例子，剩下的是思考是否有节点可以通过移动来尽可能的复用
       const count = newEnd - j + 1;
-      //  source用来存储新的一组节点在旧的的一组节点中的索引
+
+      //  已经处理完了，不需要操作
+      if (count <= 0) {
+        return;
+      }
+
+      //  新的一组节点来记录未处理节点在旧节点中的位置
       const source = new Array(count).fill(-1);
 
-      //  起始索引都是j
       const oldStart = j;
       const newStart = j;
 
-      //  是否需要移动节点
+      //  是否需要移动
       let moved = false;
-      //  表示遍历旧的一组节点中遇到的最大索引值
+      //  像简单diff中的记录最大索引，如果索引是呈递增趋势的，则不需要移动
       let pos = 0;
-      //  表示更新过的节点数量
+
+      //  key在新节点中的 key -> index 索引表
+      const keyInNewChildrenIndex = {};
+
+      //  记录更新过的节点
       let patched = 0;
 
-      //  以下这段能跑，但是时间复杂度有点高，我们完全可以通过将索引记录下来的方式降低时间复杂度
-      // for(let i = oldStart; i <= oldEnd; i++) {
-      //   const oldVNode = oldChildren[i];
-      //   for (let k = newStart; k <= newEnd; k++) {
-      //     const newVNode = newChildren[k];
-      //     if (oldVNode.key === newVNode.key) {
-      //       patch(oldVNode, newVNode, container);
-      //       source[k - newStart] = i;
-      //     }
-      //   }
-      // }
-
-      //  存储key在新节点中的索引
-      const keyIndex = {};
       for (let i = newStart; i <= newEnd; i++) {
-        keyIndex[newChildren[i].key] = i;
+        keyInNewChildrenIndex[newChildren[i].key] = i;
       }
 
-      //  遍历之后做patch更新，以及卸载操作
       for (let i = oldStart; i <= oldEnd; i++) {
-        oldVNode = oldChildren[i];
+        const oldVNode = oldChildren[i];
 
         if (patched <= count) {
-          //  找到在在新的一组节点中具有相同key的位置
-          const k = keyIndex[oldVNode.key];
+          const k = keyInNewChildrenIndex[oldVNode.key];
           if (k !== undefined) {
-            newVNode = newChildren[k];
-
+            const newVNode = newChildren[k];
             patch(oldVNode, newVNode, container);
             patched++;
 
             source[k - newStart] = i;
 
+            //  判断是否移动
             if (k < pos) {
               moved = true;
             } else {
               pos = k;
             }
           } else {
-            //  没找到就移除掉
+            //  key不存在，代表该节点需要移除
             unmount(oldVNode);
           }
         } else {
-          //  如果更新过的节点数量大于需要更新的节点，则卸载多余的节点
+          //  如果更新过的节点超过需要更新的节点，则卸载多余的节点
           unmount(oldVNode);
         }
       }
 
-      //  moved为true，表示需要进行dom移动操作
+      //  需要移动
       if (moved) {
+        //  获取最长递增子序列，找不需要移动的元素的索引
+        //  source = [2,3,1,-1] -> [2,3] -> [0,1]
         const seq = getSequence(source);
+
+        //  s 指向最长递增子序列的最后一个元素
+        let s = seq.length - 1;
+        //  i 指向新的一组节点的最后一个元素
+        let i = count - 1;
+
+        //  倒序遍历，如果i不在seq中，说明需要移动
+        for (i; i >= 0; i--) {
+          if (source[i] === -1) {
+            //  -1 表示该节点需要挂载
+            const pos = newStart + i;
+            const newVNode = newChildren[pos];
+
+            const nextPos = pos + 1;
+
+            const anchor =
+              nextPos < newChildren.length ? newChildren[nextPos].el : null;
+            patch(null, newVNode, container, anchor);
+          } else if (i != seq[s]) {
+            //  移动元素
+            const pos = newStart + i;
+            const newVNode = newChildren[pos];
+
+            const nextPos = pos + 1;
+
+            const anchor =
+              nextPos < newChildren.length ? newChildren[nextPos].el : null;
+            insert(newVNode.el, container, anchor);
+          } else {
+            s--;
+          }
+        }
       }
     }
   }
@@ -521,64 +558,6 @@ function createRenderer(options) {
   function hydrate(vnode, container) {}
 
   return { render, hydrate };
-}
-
-/**
- * 最长递增子序列
- *
- * @param {number[]} arr 索引数组
- */
-function getSequence(arr) {
-  const p = [];
-  // 在arr至少有一项的情况下，结果起码包含第一个
-  const result = [0];
-
-  let i, j, start, end, mid;
-
-  const len = arr.length;
-  for (i = 0; i < len; i++) {
-    const arrI = arr[i];
-    if (arrI !== 0) {
-      // j 是result的最后一项
-      j = result[result.length - 1];
-      if (arr[i] > arr[j]) {
-        //  p记录当前下前一项的索引值
-        p[i] = j;
-        //  当前项比最后一项还大，直接push到数组里
-        result.push(i);
-        continue;
-      }
-
-      //  二分查找与arrI最接近的值
-      start = 0;
-      end = result.length - 1;
-
-      while (start < end) {
-        mid = (start + end) >> 1;
-        if (arrI > arr[result[mid]]) {
-          start = mid + 1;
-        } else {
-          end = mid;
-        }
-      }
-
-      if (arrI < arr[result[start]]) {
-        if (start > 0) {
-          p[i] = result[start - 1];
-        }
-        result[start] = i;
-      }
-    }
-  }
-
-  start = result.length;
-  end = result[start - 1];
-  while (start-- > 0) {
-    result[start] = end;
-    end = p[end];
-  }
-
-  return result;
 }
 
 /**
@@ -630,7 +609,7 @@ export const renderer = createRenderer({
     el.textContent = text;
   },
 
-  //  用于给定的parent添加指定元素
+  //  用于给定的parent添加指定元素 / 移动元素
   insert(el, parent, anchor = null) {
     parent.insertBefore(el, anchor);
   },
@@ -725,3 +704,70 @@ const Text = Symbol();
 const Comment = Symbol();
 
 const Fragment = Symbol();
+
+/**
+ * 最长递增子序列
+ *
+ * @param {number[]} arr 索引数组
+ * @returns {number[]} 最长递增子序列的索引
+ */
+export function getSequence(arr) {
+  if (arr.length <= 0) return [];
+
+  //  有数据的情况下必定包含一项
+  //  记录arr的索引
+  const result = [0];
+
+  //  记录当每一项i修改result时,result的前一项是什么
+  //  然后从后往前遍历，因为最后一项必定是最大的
+  let p = arr.slice();
+
+  //  记录结果数组中的最后一项，如果遍历发现比他大的则push
+  let resultLast;
+
+  for (let i = 0; i < arr.length; i++) {
+    const arrI = arr[i];
+
+    //  -1 表示是要新增的，这边不需要处理
+    if (arrI !== -1) {
+      const last = result.length - 1;
+      resultLast = result[last];
+
+      if (arrI > arr[resultLast]) {
+        result.push(i);
+        p[i] = resultLast;
+        continue;
+      }
+
+      //  二分查找，找到当前项在result中比他大的一项
+      let start = 0,
+        end = result.length - 1,
+        middle;
+
+      while (start < end) {
+        middle = (start + end) >> 1;
+
+        if (arr[result[middle]] < arrI) {
+          start = middle + 1;
+        } else {
+          end = middle;
+        }
+      }
+
+      if (arr[result[end]] > arrI) {
+        result[end] = i;
+        p[i] = result[end - 1];
+      }
+    }
+  }
+
+  let i = result.length;
+  let last = result[i - 1];
+
+  while (i-- > 0) {
+    result[i] = last;
+    last = p[last];
+  }
+
+  return result;
+}
