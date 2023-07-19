@@ -8,7 +8,11 @@ async function runBuild() {
     // 当前项目根目录
     absWorkingDir: process.cwd(),
     // 入口文件列表，为一个数组
-    entryPoints: ["./src/index.js"],
+    // entryPoints: ["./src/index.js"],
+    entryPoints: {
+      reactivity: "./src/reactivity/index.ts",
+      "runtime-core": "./src/runtime-core/index.ts",
+    },
     // 打包产物目录
     outdir: "lib",
     // 是否需要打包，一般设为 true

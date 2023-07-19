@@ -1,3 +1,4 @@
+import { effect, reactive } from "../../lib/reactivity.js";
 //  渲染器
 function createRenderer(options) {
   const {
@@ -97,10 +98,96 @@ function createRenderer(options) {
       }
     } else if (typeof type === "object") {
       //  组件
+      if (!n1) {
+        //  挂载组件
+        mountComponent(n2, container, anchor);
+      } else {
+      }
     } else {
       // 其他
     }
   }
+
+  /**
+   * 挂载组件
+   *
+   * @param {*} vnode
+   * @param {*} container
+   * @param {*} anchor
+   */
+  function mountComponent(vnode, container, anchor) {
+    //  获取选项对象
+    const componentOptions = vnode.type;
+
+    //  获取render
+    const {
+      render,
+      data,
+      beforeCreate,
+      created,
+      beforeMounted,
+      mounted,
+      beforeUpdate,
+      updated,
+    } = componentOptions;
+
+    const isDataFunction = typeof data === "function";
+
+    //  调用beforeCreate钩子，此时无法访问数据
+    beforeCreate && beforeCreate();
+
+    const state = reactive(isDataFunction ? data() : data);
+
+    //  调用created钩子，此时可访问数据，但无法访问dom
+    created && created();
+
+    //  实例
+    const instance = {
+      state,
+      //  记录是初次挂载还是更新
+      isMounted: false,
+      //  存储虚拟dom
+      subTree: null,
+    };
+
+    vnode.component = instance;
+
+    effect(
+      () => {
+        const subTree = render.call(state, state);
+
+        if (!instance.isMounted) {
+          beforeMounted && beforeMounted();
+          //  初次挂载
+          patch(null, subTree, container, anchor);
+
+          //  已挂载，可以访问dom
+          mounted && mounted();
+        } else {
+          beforeUpdate && beforeUpdate();
+          //  更新
+          patch(instance.subTree, subTree, container, anchor);
+
+          //  已更新
+          updated && updated();
+        }
+
+        instance.subTree = subTree;
+      },
+      {
+        scheduler: queueJob,
+      }
+    );
+  }
+
+  /**
+   * 更新组件
+   *
+   * @param {*} n1
+   * @param {*} n2
+   * @param {*} container
+   */
+  function patchComponent(n1, n2, container) {}
 
   /**
    * 挂载元素
@@ -770,4 +857,28 @@ export function getSequence(arr) {
   }
 
   return result;
+}
+
+//  任务缓存队列
+const queue = new Set();
+//  是否正在处理任务队列
+let isFlushing = false;
+
+const p = Promise.resolve();
+
+function queueJob(job) {
+  queue.add(job);
+  if (!isFlushing) {
+    isFlushing = true;
+    p.then(() => {
+      try {
+        queue.forEach((j) => j());
+      } catch (e) {
+        console.log("[QueueJob Error]: ", e);
+      } finally {
+        isFlushing = false;
+        queue.size = 0;
+      }
+    });
+  }
 }
