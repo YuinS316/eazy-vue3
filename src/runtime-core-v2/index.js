@@ -1,4 +1,4 @@
-import { effect, reactive } from "../../lib/reactivity.js";
+import { effect, reactive, shallowReactive } from "../../lib/reactivity.js";
 //  渲染器
 function createRenderer(options) {
   const {
@@ -102,10 +102,34 @@ function createRenderer(options) {
         //  挂载组件
         mountComponent(n2, container, anchor);
       } else {
+        patchComponent(n1, n2, container);
       }
     } else {
       // 其他
     }
+  }
+
+  /**
+   * 处理接收到的props， 除了预先定义的props还有attrs
+   * @param {*} options  组件定义的props
+   * @param {*} propsData  实际接受到的props
+   */
+  function resolveProps(options, propsData) {
+    const props = {};
+    const attrs = {};
+
+    for (const key in propsData) {
+      if (key in options) {
+        props[key] = propsData[key];
+      } else {
+        attrs[key] = propsData[key];
+      }
+    }
+
+    return {
+      props,
+      attrs,
+    };
   }
 
   /**
@@ -122,6 +146,7 @@ function createRenderer(options) {
     //  获取render
     const {
       render,
+      props: propsOption,
       data,
       beforeCreate,
       created,
@@ -136,7 +161,9 @@ function createRenderer(options) {
     //  调用beforeCreate钩子，此时无法访问数据
     beforeCreate && beforeCreate();
 
-    const state = reactive(isDataFunction ? data() : data);
+    const state = reactive(isDataFunction ? data() : data || {});
+
+    const { props } = resolveProps(propsOption || {}, vnode.props || {});
 
     //  调用created钩子，此时可访问数据，但无法访问dom
     created && created();
@@ -144,40 +171,93 @@ function createRenderer(options) {
     //  实例
     const instance = {
       state,
+      props: shallowReactive(props),
       //  记录是初次挂载还是更新
       isMounted: false,
       //  存储虚拟dom
       subTree: null,
     };
 
+    //  创建渲染上下文，需要能访问的到state, props等
+    const renderContext = new Proxy(instance, {
+      get(target, key, reveiver) {
+        const { state, props } = target;
+
+        if (key in props) {
+          return props[key];
+        } else if (key in state) {
+          return state[key];
+        } else {
+          console.warn("You are trying to access a undefined key:" + key);
+          return undefined;
+        }
+      },
+      set(target, key, value, receiver) {
+        const { state, props } = target;
+
+        if (key in props) {
+          props[key] = value;
+        } else if (key in state) {
+          state[key] = value;
+        } else {
+          console.warn("You are trying to change a undefined key:" + key);
+        }
+      },
+    });
+
     vnode.component = instance;
 
-    effect(
+    instance.update = effect(
       () => {
-        const subTree = render.call(state, state);
+        const subTree = render.call(renderContext, renderContext);
 
         if (!instance.isMounted) {
-          beforeMounted && beforeMounted();
+          beforeMounted && beforeMount.call(renderContext);
           //  初次挂载
           patch(null, subTree, container, anchor);
 
           //  已挂载，可以访问dom
           mounted && mounted();
         } else {
-          beforeUpdate && beforeUpdate();
+          beforeUpdate && beforeUpdate.call(renderContext);
           //  更新
           patch(instance.subTree, subTree, container, anchor);
 
           //  已更新
-          updated && updated();
+          updated && updated.call(renderContext);
         }
 
         instance.subTree = subTree;
+        vnode.el = subTree.el;
       },
       {
-        scheduler: queueJob,
+        scheduler() {
+          queueJob(instance.update);
+        },
       }
     );
+  }
+
+  /**
+   * 检测props是否发生变化
+   *
+   * @param {*} prevProps
+   * @param {*} nextProps
+   */
+  function hasPropsChanged(prevProps, nextProps) {
+    //  对比props的数量是否发生变化
+    if (Object.keys(prevProps).length !== Object.keys(nextProps).length) {
+      return true;
+    }
+
+    //  如果对应的key的值不一样
+    for (const key in nextProps) {
+      if (nextProps[key] !== prevProps[key]) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -187,7 +267,36 @@ function createRenderer(options) {
    * @param {*} n2
    * @param {*} container
    */
-  function patchComponent(n1, n2, container) {}
+  function patchComponent(n1, n2, container) {
+    //  获取组件实例，让新的虚拟节点也指向同一个实例
+    const instance = (n2.component = n1.component);
+
+    //  获取当前的props
+    const { props } = instance;
+
+    //  这是指的父组件传递的props是否发生变化
+    const hasChanged = hasPropsChanged(n1.props, n2.props);
+
+    n2.el = n1.el;
+
+    //  只有变化了才需要更新
+    if (hasChanged) {
+      const { props: nextProps } = resolveProps(n2.type.props, n2.props);
+
+      //  更新props
+      for (const key in nextProps) {
+        props[key] = nextProps[key];
+      }
+
+      //  删除不存在的props
+      for (const key in props) {
+        if (!(key in nextProps)) {
+          delete props[key];
+        }
+      }
+    } else {
+    }
+  }
 
   /**
    * 挂载元素
@@ -877,8 +986,13 @@ function queueJob(job) {
         console.log("[QueueJob Error]: ", e);
       } finally {
         isFlushing = false;
-        queue.size = 0;
       }
     });
   }
+}
+
+export function nextTick(cb) {
+  return p.then(() => {
+    cb && cb();
+  });
 }

@@ -6,7 +6,14 @@ import {
   afterEach,
   vi,
 } from "./test-runner.js";
-import { renderer, getSequence, Text, Comment, Fragment } from "./index.js";
+import {
+  renderer,
+  getSequence,
+  Text,
+  Comment,
+  Fragment,
+  nextTick,
+} from "./index.js";
 
 beforeEach(() => {});
 
@@ -56,11 +63,11 @@ it("stateful component", () => {
   expect(realInnerHTML).toBe(`<div>foo: hello world</div>`);
 });
 
-it.only("props component", () => {
+it("props component", () => {
   const MyComponent = {
     name: "MyComponent",
     props: {
-      foo: "hello world",
+      foo: String,
     },
     data() {
       return {};
@@ -74,10 +81,68 @@ it.only("props component", () => {
   };
   const VNode = {
     type: MyComponent,
+    props: {
+      foo: "hello world",
+    },
   };
   renderer.render(VNode, document.querySelector("#app"));
   let realInnerHTML = document.querySelector("#app").innerHTML;
   expect(realInnerHTML).toBe(`<div>foo: hello world</div>`);
+});
+
+it("props changed", async () => {
+  const MyComponent = {
+    name: "MyComponent",
+    props: {
+      foo: String,
+    },
+    data() {
+      return {};
+    },
+    render() {
+      return {
+        type: "div",
+        children: `foo: ${this.foo}`,
+      };
+    },
+  };
+  const VNode = {
+    type: MyComponent,
+    props: {
+      foo: "hello world",
+    },
+  };
+  renderer.render(VNode, document.querySelector("#app"));
+  let realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(`<div>foo: hello world</div>`);
+
+  const DifferentComponent = {
+    name: "DifferentComponent",
+    props: {
+      foo: String,
+    },
+    data() {
+      return {};
+    },
+    render() {
+      return {
+        type: "p",
+        children: `foo: ${this.foo}`,
+      };
+    },
+  };
+
+  const newVNode = {
+    type: DifferentComponent,
+    props: {
+      foo: "hello new world",
+    },
+  };
+  renderer.render(newVNode, document.querySelector("#app"));
+
+  await nextTick();
+  realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(`<p>foo: hello new world</p>`);
 });
 
 runner("component");

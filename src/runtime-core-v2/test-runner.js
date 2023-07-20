@@ -10,7 +10,7 @@ function cleanup() {
   afterEachCb.length = 0;
 }
 
-export function runner(unitName) {
+export async function runner(unitName) {
   let runCases = cases.filter((c) => c.options.skip !== true);
 
   let onlyCases = cases.filter((c) => c.options.only === true);
@@ -25,7 +25,8 @@ export function runner(unitName) {
 
   console.log(`======== ${unitName} start ========`);
 
-  runCases.forEach(({ name, cb }) => {
+  for (const cases of runCases) {
+    const { name, cb } = cases;
     console.log(` ===== ${name} start ====`);
 
     beforeEachCb.forEach((fn) => {
@@ -33,7 +34,7 @@ export function runner(unitName) {
     });
 
     try {
-      cb();
+      await cb();
       console.log(" | > 结果：测试通过");
       successNums++;
     } catch (error) {
@@ -46,7 +47,7 @@ export function runner(unitName) {
     }
 
     console.log(` ===== ${name} end ====`);
-  });
+  }
 
   console.log(`======== ${unitName} end ========`);
   console.log(`共成功用例 ${successNums} / ${total}`);
