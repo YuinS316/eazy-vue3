@@ -1,4 +1,10 @@
-import { effect, reactive, shallowReactive } from "../../lib/reactivity.js";
+import {
+  effect,
+  reactive,
+  shallowReactive,
+  shallowReadonly,
+  proxyRefs,
+} from "../../lib/reactivity.js";
 //  渲染器
 function createRenderer(options) {
   const {
@@ -119,7 +125,7 @@ function createRenderer(options) {
     const attrs = {};
 
     for (const key in propsData) {
-      if (key in options) {
+      if (key in options || key.startsWith("on")) {
         props[key] = propsData[key];
       } else {
         attrs[key] = propsData[key];
@@ -154,6 +160,7 @@ function createRenderer(options) {
       mounted,
       beforeUpdate,
       updated,
+      setup,
     } = componentOptions;
 
     const isDataFunction = typeof data === "function";
@@ -163,7 +170,7 @@ function createRenderer(options) {
 
     const state = reactive(isDataFunction ? data() : data || {});
 
-    const { props } = resolveProps(propsOption || {}, vnode.props || {});
+    const { props, attrs } = resolveProps(propsOption || {}, vnode.props || {});
 
     //  调用created钩子，此时可访问数据，但无法访问dom
     created && created();
@@ -178,15 +185,36 @@ function createRenderer(options) {
       subTree: null,
     };
 
+    function emit(evName, ...payloads) {
+      const handler = instance.props[evName];
+      if (handler) {
+        handler(...payloads);
+      } else {
+        console.warn(`You are trying to cal a unregisted function`);
+      }
+    }
+
+    const setupContext = { attrs, emit };
+
+    let setupResult = {};
+    let setupState = {};
+    if (setup) {
+      setupResult = setup(shallowReadonly(props), setupContext);
+      //  暂时默认其返回对象而不是渲染函数
+      setupState = proxyRefs(setupResult);
+    }
+
     //  创建渲染上下文，需要能访问的到state, props等
     const renderContext = new Proxy(instance, {
       get(target, key, reveiver) {
         const { state, props } = target;
 
-        if (key in props) {
+        if (props && key in props) {
           return props[key];
-        } else if (key in state) {
+        } else if (state && key in state) {
           return state[key];
+        } else if (setupState && key in setupState) {
+          return setupState[key];
         } else {
           console.warn("You are trying to access a undefined key:" + key);
           return undefined;
@@ -195,10 +223,12 @@ function createRenderer(options) {
       set(target, key, value, receiver) {
         const { state, props } = target;
 
-        if (key in props) {
+        if (props && key in props) {
           props[key] = value;
-        } else if (key in state) {
+        } else if (state && key in state) {
           state[key] = value;
+        } else if (setupState && key in setupState) {
+          setupState[key] = value;
         } else {
           console.warn("You are trying to change a undefined key:" + key);
         }
@@ -215,6 +245,8 @@ function createRenderer(options) {
           beforeMounted && beforeMount.call(renderContext);
           //  初次挂载
           patch(null, subTree, container, anchor);
+
+          instance.isMounted = true;
 
           //  已挂载，可以访问dom
           mounted && mounted();

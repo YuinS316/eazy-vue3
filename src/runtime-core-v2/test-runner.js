@@ -219,3 +219,52 @@ export const expect = (value) => {
     },
   };
 };
+
+//  =========== dom相关的 ===============
+
+const MouseEvent = [
+  "click",
+  "mousedown",
+  "mousemove",
+  "mouseout",
+  "mouseover",
+  "mouseup",
+];
+const HTMLEvent = [
+  "abort",
+  "blur",
+  "change",
+  "error",
+  "focus",
+  "load",
+  "reset",
+  "resize",
+  "scroll",
+  "select",
+  "submit",
+  "unload",
+];
+
+/**
+ * 触发时间
+ * @param {*} target
+ * @param {*} evName
+ * @param  {...any} payload
+ */
+export function trigger(target, evName, ...payload) {
+  let eventType;
+
+  const isMouseEvent = MouseEvent.includes(evName);
+  if (isMouseEvent) {
+    eventType = "MouseEvents";
+  }
+
+  const isHTMLEvent = HTMLEvent.includes(evName);
+  if (isHTMLEvent) {
+    eventType = "HTMLEvents";
+  }
+
+  const event = document.createEvent(eventType);
+  event.initEvent(evName, true, false);
+  target.dispatchEvent(event);
+}

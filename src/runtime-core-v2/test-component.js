@@ -5,6 +5,7 @@ import {
   beforeEach,
   afterEach,
   vi,
+  trigger,
 } from "./test-runner.js";
 import {
   renderer,
@@ -14,11 +15,12 @@ import {
   Fragment,
   nextTick,
 } from "./index.js";
+import { ref } from "../../lib/reactivity.js";
 
 beforeEach(() => {});
 
 afterEach(() => {
-  // renderer.render(null, document.querySelector("#app"));
+  renderer.render(null, document.querySelector("#app"));
   // document.querySelector("#app").innerHTML = "";
 });
 
@@ -143,6 +145,114 @@ it("props changed", async () => {
   await nextTick();
   realInnerHTML = document.querySelector("#app").innerHTML;
   expect(realInnerHTML).toBe(`<p>foo: hello new world</p>`);
+});
+
+it("setup", () => {
+  const MyComponent = {
+    name: "MyComponent",
+    props: {
+      foo: String,
+    },
+    setup(props, setupContext) {
+      const { attrs } = setupContext;
+
+      return {
+        bar: attrs.bar,
+      };
+    },
+    render() {
+      return {
+        type: "div",
+        children: [
+          {
+            type: "div",
+            children: `foo: ${this.foo}`,
+          },
+          {
+            type: "div",
+            children: `bar: ${this.bar}`,
+          },
+        ],
+      };
+    },
+  };
+  const VNode = {
+    type: MyComponent,
+    props: {
+      foo: "hello world",
+      bar: "attr bar",
+    },
+  };
+  renderer.render(VNode, document.querySelector("#app"));
+  let realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(
+    `<div><div>foo: hello world</div><div>bar: attr bar</div></div>`
+  );
+});
+
+it("emit", async () => {
+  const MyComponent = {
+    name: "MyComponent",
+    props: {
+      foo: String,
+      onUpdateFoo: Function,
+    },
+    setup(props, setupContext) {
+      const { emit } = setupContext;
+      const handleUpdateFoo = () => {
+        emit("onUpdateFoo", "update foo");
+      };
+      return {
+        handleUpdateFoo,
+      };
+    },
+    render() {
+      return {
+        type: "div",
+        props: {
+          onClick: this.handleUpdateFoo,
+        },
+        children: `foo: ${this.foo}`,
+      };
+    },
+  };
+
+  const AppComponent = {
+    name: "App",
+    setup() {
+      let foo = ref("hello world");
+      const handleUpdateFoo = (str) => {
+        console.log("receive--", str);
+        foo.value = str;
+      };
+      return {
+        foo,
+        handleUpdateFoo,
+      };
+    },
+    render() {
+      return {
+        type: MyComponent,
+        props: {
+          foo: this.foo,
+          onUpdateFoo: this.handleUpdateFoo,
+        },
+      };
+    },
+  };
+
+  const VNode = {
+    type: AppComponent,
+  };
+  renderer.render(VNode, document.querySelector("#app"));
+  let realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(`<div>foo: hello world</div>`);
+
+  trigger(document.querySelector("#app").firstElementChild, "click");
+
+  await nextTick();
+  realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(`<div>foo: update foo</div>`);
 });
 
 runner("component");
