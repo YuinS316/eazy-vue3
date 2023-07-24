@@ -46,7 +46,7 @@ function createRenderer(options) {
       return;
     }
 
-    const parent = vnode.el.parentNode;
+    const parent = vnode.el?.parentNode;
     if (parent) {
       parent.removeChild(vnode.el);
     }
@@ -149,6 +149,9 @@ function createRenderer(options) {
     //  获取选项对象
     const componentOptions = vnode.type;
 
+    //  插槽的处理
+    const slots = vnode.children || {};
+
     //  获取render
     const {
       render,
@@ -183,6 +186,7 @@ function createRenderer(options) {
       isMounted: false,
       //  存储虚拟dom
       subTree: null,
+      slots,
     };
 
     function emit(evName, ...payloads) {
@@ -194,7 +198,7 @@ function createRenderer(options) {
       }
     }
 
-    const setupContext = { attrs, emit };
+    const setupContext = { attrs, emit, slots };
 
     let setupResult = {};
     let setupState = {};
@@ -207,9 +211,11 @@ function createRenderer(options) {
     //  创建渲染上下文，需要能访问的到state, props等
     const renderContext = new Proxy(instance, {
       get(target, key, reveiver) {
-        const { state, props } = target;
+        const { state, props, slots } = target;
 
-        if (props && key in props) {
+        if (key === "$slots") {
+          return slots;
+        } else if (props && key in props) {
           return props[key];
         } else if (state && key in state) {
           return state[key];

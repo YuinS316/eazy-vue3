@@ -255,4 +255,55 @@ it("emit", async () => {
   expect(realInnerHTML).toBe(`<div>foo: update foo</div>`);
 });
 
+it.only("test slots", () => {
+  const AppComponent = {
+    name: "App",
+    setup() {
+      let foo = ref("hello world");
+      return {
+        foo,
+      };
+    },
+    render() {
+      return {
+        type: "div",
+        children: [
+          {
+            type: "div",
+            children: [this.$slots.default()],
+          },
+          {
+            type: "div",
+            children: [this.$slots.body()],
+          },
+        ],
+      };
+    },
+  };
+
+  const VNode = {
+    type: AppComponent,
+    children: {
+      default() {
+        return {
+          type: Text,
+          children: "this is default",
+        };
+      },
+      body() {
+        return {
+          type: Text,
+          children: "this is body",
+        };
+      },
+    },
+  };
+
+  renderer.render(VNode, document.querySelector("#app"));
+  let realInnerHTML = document.querySelector("#app").innerHTML;
+  expect(realInnerHTML).toBe(
+    `<div><div>this is default</div><div>this is body</div></div>`
+  );
+});
+
 runner("component");
