@@ -14,6 +14,7 @@ import {
   Comment,
   Fragment,
   nextTick,
+  onMounted,
 } from "./index.js";
 import { ref } from "../../lib/reactivity.js";
 
@@ -255,7 +256,7 @@ it("emit", async () => {
   expect(realInnerHTML).toBe(`<div>foo: update foo</div>`);
 });
 
-it.only("test slots", () => {
+it("test slots", () => {
   const AppComponent = {
     name: "App",
     setup() {
@@ -304,6 +305,52 @@ it.only("test slots", () => {
   expect(realInnerHTML).toBe(
     `<div><div>this is default</div><div>this is body</div></div>`
   );
+});
+
+it.only("test lifecycle hook", () => {
+  const result = [];
+
+  const ChildComponent = {
+    name: "Child",
+    setup() {
+      onMounted(() => {
+        result.push("child");
+      });
+      return {};
+    },
+    render() {
+      return {
+        type: "div",
+        children: [],
+      };
+    },
+  };
+  const AppComponent = {
+    name: "App",
+    setup() {
+      onMounted(() => {
+        result.push("parent");
+      });
+      return {};
+    },
+    render() {
+      return {
+        type: "div",
+        children: [
+          {
+            type: ChildComponent,
+          },
+        ],
+      };
+    },
+  };
+
+  const VNode = {
+    type: AppComponent,
+  };
+
+  renderer.render(VNode, document.querySelector("#app"));
+  expect(result).toEqual(["child", "parent"]);
 });
 
 runner("component");

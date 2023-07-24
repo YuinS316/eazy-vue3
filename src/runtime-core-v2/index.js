@@ -187,6 +187,8 @@ function createRenderer(options) {
       //  存储虚拟dom
       subTree: null,
       slots,
+      //  onMounted注册的函数会进入到这里
+      mounted: [],
     };
 
     function emit(evName, ...payloads) {
@@ -203,9 +205,15 @@ function createRenderer(options) {
     let setupResult = {};
     let setupState = {};
     if (setup) {
+      setCurrentInstance(instance);
       setupResult = setup(shallowReadonly(props), setupContext);
       //  暂时默认其返回对象而不是渲染函数
-      setupState = proxyRefs(setupResult);
+      if (Object.prototype.toString.call(setupResult) !== "[object Object]") {
+        console.error("setup必须返回一个对象");
+      } else {
+        setupState = proxyRefs(setupResult);
+      }
+      setCurrentInstance(null);
     }
 
     //  创建渲染上下文，需要能访问的到state, props等
@@ -256,6 +264,12 @@ function createRenderer(options) {
 
           //  已挂载，可以访问dom
           mounted && mounted();
+
+          if (instance.mounted.length > 0) {
+            instance.mounted.forEach((hook) => {
+              hook.call(renderContext);
+            });
+          }
         } else {
           beforeUpdate && beforeUpdate.call(renderContext);
           //  更新
@@ -1033,4 +1047,19 @@ export function nextTick(cb) {
   return p.then(() => {
     cb && cb();
   });
+}
+
+//  记录当前运行到了哪个实例
+let currentInstance = null;
+
+function setCurrentInstance(instance) {
+  currentInstance = instance;
+}
+
+export function onMounted(fn) {
+  if (currentInstance) {
+    currentInstance.mounted.push(fn);
+  } else {
+    console.warn(`onMounted 只允许在setup函数中使用`);
+  }
 }
