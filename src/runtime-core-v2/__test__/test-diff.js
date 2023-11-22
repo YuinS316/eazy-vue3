@@ -1,5 +1,5 @@
-import { it, expect, runner, beforeEach, afterEach } from "./test-runner.js";
-import { renderer, getSequence } from "./index.js";
+import { it, expect, runner, beforeEach, afterEach } from "../test-runner.js";
+import { renderer, getSequence } from "../index.js";
 
 beforeEach(() => {});
 

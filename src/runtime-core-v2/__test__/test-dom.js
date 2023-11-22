@@ -5,8 +5,8 @@ import {
   beforeEach,
   afterEach,
   vi,
-} from "./test-runner.js";
-import { renderer, getSequence, Text, Comment, Fragment } from "./index.js";
+} from "../test-runner.js";
+import { renderer, getSequence, Text, Comment, Fragment } from "../index.js";
 
 beforeEach(() => {});
 

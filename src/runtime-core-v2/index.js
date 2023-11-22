@@ -4,6 +4,7 @@ import {
   shallowReactive,
   shallowReadonly,
   proxyRefs,
+  ref,
 } from "../../lib/reactivity.js";
 //  渲染器
 function createRenderer(options) {
@@ -153,7 +154,7 @@ function createRenderer(options) {
     const slots = vnode.children || {};
 
     //  获取render
-    const {
+    let {
       render,
       props: propsOption,
       data,
@@ -202,16 +203,25 @@ function createRenderer(options) {
 
     const setupContext = { attrs, emit, slots };
 
-    let setupResult = {};
+    let setupResult = null;
     let setupState = {};
     if (setup) {
       setCurrentInstance(instance);
+
+      //  判断一下setup返回的是函数还是对象
       setupResult = setup(shallowReadonly(props), setupContext);
-      //  暂时默认其返回对象而不是渲染函数
-      if (Object.prototype.toString.call(setupResult) !== "[object Object]") {
-        console.error("setup必须返回一个对象");
-      } else {
+
+      if (Object.prototype.toString.call(setupResult) === "[object Object]") {
         setupState = proxyRefs(setupResult);
+      } else if (
+        Object.prototype.toString.call(setupResult) === "[object Function]"
+      ) {
+        if (render) {
+          console.warn("setup已返回函数，render选项将会被忽略");
+        }
+        render = setupResult;
+      } else {
+        console.warn("setup 必须返回对象或函数");
       }
       setCurrentInstance(null);
     }
@@ -1062,4 +1072,57 @@ export function onMounted(fn) {
   } else {
     console.warn(`onMounted 只允许在setup函数中使用`);
   }
+}
+
+/**
+ * 定义异步组件
+ *
+ * @param {object} options
+ * @param {Function} options.loader 需要异步加载的组件
+ * @param {number} options.timeout 超时时间
+ * @param {*} options.errorComponent 当加载失败时加载的组件
+ * @returns
+ */
+export function defaultAsyncComponent({
+  loader,
+  timeout = 2000,
+  errorComponent,
+}) {
+  let innerComponent = null;
+  return {
+    name: "AsyncComponentWrapper",
+    setup() {
+      const isLoaded = ref(false);
+
+      const error = ref(false);
+
+      let timer = null;
+
+      loader()
+        .then((c) => {
+          innerComponent = c;
+          isLoaded.value = true;
+        })
+        .catch((err) => {
+          error.value = err;
+        });
+
+      if (timeout) {
+        timer = setTimeout(() => {
+          const err = new Error(
+            `Async component  timed out after ${timeout} ms`
+          );
+          error.value = err;
+        }, timeout);
+      }
+
+      return () => {
+        return isLoaded.value
+          ? { type: innerComponent }
+          : error.value && errorComponent
+          ? { type: errorComponent, props: { error: error.value } }
+          : { type: Comment, children: "loading" };
+      };
+    },
+  };
 }

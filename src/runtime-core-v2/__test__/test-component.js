@@ -6,7 +6,7 @@ import {
   afterEach,
   vi,
   trigger,
-} from "./test-runner.js";
+} from "../test-runner.js";
 import {
   renderer,
   getSequence,
@@ -15,8 +15,8 @@ import {
   Fragment,
   nextTick,
   onMounted,
-} from "./index.js";
-import { ref } from "../../lib/reactivity.js";
+} from "../index.js";
+import { ref } from "../../../lib/reactivity.js";
 
 beforeEach(() => {});
 

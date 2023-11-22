@@ -1,19 +1,19 @@
-const cases = [];
+const testCases = [];
 const beforeEachCb = [];
 const afterEachCb = [];
 const spyMap = new WeakMap();
 
 //  清除
 function cleanup() {
-  cases.length = 0;
+  testCases.length = 0;
   beforeEachCb.length = 0;
   afterEachCb.length = 0;
 }
 
 export async function runner(unitName) {
-  let runCases = cases.filter((c) => c.options.skip !== true);
+  let runCases = testCases.filter((c) => c.options.skip !== true);
 
-  let onlyCases = cases.filter((c) => c.options.only === true);
+  let onlyCases = testCases.filter((c) => c.options.only === true);
 
   if (onlyCases.length > 0) {
     runCases = onlyCases;
@@ -75,7 +75,7 @@ export function it(
     skip: false,
   }
 ) {
-  cases.push({
+  testCases.push({
     name,
     cb,
     options,
@@ -154,7 +154,78 @@ export const vi = {
       cb(...args);
     };
   },
+  useFakeTimers() {
+    useFakeTimer = true;
+  },
+  useRealTimers() {
+    useFakeTimer = false;
+    fakeTimersQueue.length = 0;
+  },
+  advanceTimersByTime(time) {
+    if (!useFakeTimer) {
+      throw new Error("advanceTimersByTime can only be used with fake timers");
+    }
+
+    debugger;
+
+    currentTime += time;
+
+    while (fakeTimersQueue.length > 0) {
+      const nextTimer = fakeTimersQueue[0];
+
+      if (currentTime >= nextTimer.delay) {
+        nextTimer.executed = true;
+        nextTimer.cb(...nextTimer.args);
+        fakeTimersQueue.shift();
+      } else {
+        break;
+      }
+    }
+  },
 };
+
+//  ===== fake time start ======
+let useFakeTimer = false;
+const realSetTimeout = setTimeout;
+const realClearTimeout = clearTimeout;
+let timerId = 0;
+let currentTime = 0;
+
+const fakeTimersQueue = [];
+
+const fakeSetTimeout = (cb, delay, ...args) => {
+  if (useFakeTimer) {
+    const timeoutId = {
+      id: timerId++,
+      cb,
+      delay,
+      args,
+      //  是否已执行
+      executed: false,
+    };
+    fakeTimersQueue.push(timeoutId);
+    fakeTimersQueue.sort((a, b) => a.delay - b.delay);
+    return timeoutId.id;
+  } else {
+    realSetTimeout(cb, delay, ...args);
+  }
+};
+
+const fakeClearTimeout = (timeoutId) => {
+  if (useFakeTimer) {
+    const index = fakeTimersQueue.findIndex((item) => item.id === timeoutId);
+    if (index !== -1) {
+      fakeTimersQueue.splice(index, 1);
+    }
+  } else {
+    realClearTimeout(timeoutId);
+  }
+};
+
+setTimeout = fakeSetTimeout;
+clearTimeout = fakeClearTimeout;
+
+//  ===== fake time end =======
 
 /**
  *
