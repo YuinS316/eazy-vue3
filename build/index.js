@@ -52,8 +52,8 @@ async function runBuild(shouldLog = false) {
     console.log(result);
   }
 
-  let diffTime = (endTime - startTime) / 1000;
-  console.log(`总耗时: ${diffTime}秒`);
+  let diffTime = (endTime - startTime);
+  console.log(`总耗时: ${diffTime}ms`);
 }
 
 //  清除旧文件

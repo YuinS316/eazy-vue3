@@ -5,7 +5,7 @@ import {
   createComponentInstance,
   setupComponent,
 } from "./component";
-import { VNode, VNodeArrayChildren } from "./vnode";
+import { Fragment, Text, VNode, VNodeArrayChildren } from "./vnode";
 
 export interface RendererNode {
   [key: string]: any;
@@ -18,13 +18,45 @@ export function render(vnode: VNode, container: RendererElement) {
 }
 
 export function patch(vnode: VNode, container: RendererElement) {
-  //  如何区分是component还是element，看vnode的type是否是对象
-  if (vnode.shapeFlag & ShapeFlags.ELEMENT) {
-    processElement(vnode, container);
-  } else if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-    processComponent(vnode, container);
+  const { type, shapeFlag } = vnode;
+
+  switch (type) {
+    case Fragment: {
+      processFragment(vnode, container);
+      break;
+    }
+
+    case Text: {
+      processText(vnode, container);
+      break;
+    }
+
+    default: {
+      //  如何区分是component还是element，看vnode的type是否是对象
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        processElement(vnode, container);
+      } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        processComponent(vnode, container);
+      }
+      break;
+    }
   }
 }
+
+//* =======  特殊处理 ==========
+function processFragment(vnode: VNode, container: RendererElement) {
+  mountChildren(vnode.children as VNodeArrayChildren, container);
+}
+
+function processText(vnode: VNode, container: RendererElement) {
+  const el = document.createTextNode(vnode.children as string);
+
+  vnode.el = el;
+
+  container.appendChild(el);
+}
+
+//* =======  元素 ==========
 
 function processElement(vnode: VNode, container: RendererElement) {
   mountElement(vnode, container);
@@ -66,6 +98,7 @@ function mountChildren(
   });
 }
 
+//* =======  组件 ==========
 function processComponent(vnode: VNode, container: RendererElement) {
   mountComponent(vnode, container);
 

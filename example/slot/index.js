@@ -1,4 +1,4 @@
-import { createApp, h, renderSlots } from "../../lib/runtime-core.js";
+import { createApp, h, renderSlots, createTextVNode } from "../../lib/runtime-core.js";
 
 const Foo = {
   setup(props) {
@@ -48,7 +48,7 @@ const App = {
 
     //  作用域插槽
     const foo = h(Foo, {}, {
-      header: ({ age }) => h("p", {}, "header" + age),
+      header: ({ age }) => [h("p", {}, "header" + age), createTextVNode('text123')],
       footer: () => h("p", {}, "footer")
     });
 

@@ -1,7 +1,10 @@
 import { ShapeFlags } from "@/shared/ShapeFlags";
 import { RawSlots } from "./componentSlots";
 
-export type VNodeTypes = string | VNode;
+export const Fragment = Symbol.for("v-fgt");
+export const Text = Symbol.for("v-txt");
+
+export type VNodeTypes = string | VNode | typeof Fragment | typeof Text;
 
 export type VNodeProps = {
   key?: string | number | symbol;
@@ -58,6 +61,11 @@ export function createVNode(type: VNodeTypes, props?, children?): VNode {
   }
 
   return vnode;
+}
+
+//  创建文本节点
+export function createTextVNode(text: string) {
+  return createVNode(Text, {}, text);
 }
 
 function getShapeFlag(type: VNodeTypes) {

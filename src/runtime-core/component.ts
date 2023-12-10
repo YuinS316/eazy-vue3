@@ -71,7 +71,7 @@ function handleSetupResult(instance: ComponentInternalInstance, setupResult) {
 
 function finishComponentSetup(instance: ComponentInternalInstance) {
   const Component = instance.type;
-  if (typeof Component !== "string" && Component.render) {
+  if (typeof Component === "object" && Component.render) {
     instance.render = Component.render;
   }
 }

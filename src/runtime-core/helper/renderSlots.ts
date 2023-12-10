@@ -1,4 +1,4 @@
-import { createVNode } from "../vnode";
+import { createVNode, Fragment } from "../vnode";
 
 export function renderSlots(slots, name = "default", props = {}) {
   //  我们会获取到slots是一个对象
@@ -7,9 +7,9 @@ export function renderSlots(slots, name = "default", props = {}) {
 
   if (slot) {
     if (typeof slot === "function") {
-      return createVNode("div", {}, slot(props));
+      return createVNode(Fragment, {}, slot(props));
     }
-    return createVNode("div", {}, slot);
+    return createVNode(Fragment, {}, slot);
   } else {
     return {};
   }
