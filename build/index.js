@@ -1,7 +1,14 @@
 const { build } = require("esbuild");
+const { remove } = require("fs-extra");
+const { join } = require("path");
+const watch = require("node-watch");
 
-async function runBuild() {
-  let startTime = new Date().getTime();
+//  构建
+async function runBuild(shouldLog = false) {
+  const startTime = new Date().getTime();
+
+  await cleanup();
+
   // 异步方法，返回一个 Promise
   const result = await build({
     // ----  如下是一些常见的配置  ---
@@ -39,11 +46,55 @@ async function runBuild() {
     //   '.png': 'base64',
     // }
   });
-  let endTime = new Date().getTime();
-  console.log(result);
+  const endTime = new Date().getTime();
+
+  if (shouldLog) {
+    console.log(result);
+  }
 
   let diffTime = (endTime - startTime) / 1000;
   console.log(`总耗时: ${diffTime}秒`);
 }
 
-runBuild();
+//  清除旧文件
+async function cleanup() {
+  const outDir = join(process.cwd(), "lib");
+
+  //  清空文件夹
+  await remove(outDir);
+}
+
+//  监听文件变化
+function watchFileChanges() {
+  const entryDirs = join(process.cwd(), "src");
+  const watcher = watch(entryDirs, { recursive: true });
+
+  console.log("开始文件监听")
+  watcher.on("change", function (evt, name) {
+    console.log("检测到文件更新 -> ", name);
+    runBuild();
+  });
+
+  process.on("exit", () => {
+    watcher.close();
+    console.log("成功移除监听器");
+  });
+
+  process.on("SIGINT", () => {
+    console.log("监听到ctrl+c退出程序");
+    process.exit();
+  })
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+
+  await runBuild(true);
+
+  //  是否开启文件监听
+  if (args[0] === "watch") {
+    watchFileChanges();
+  }
+}
+
+main();

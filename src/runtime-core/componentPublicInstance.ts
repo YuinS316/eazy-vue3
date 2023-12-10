@@ -14,6 +14,7 @@ export type PublicPropertiesMap = Record<
 //  后续一些特殊的属性，可以在这里添加即可
 export const publicPropertiesMap: PublicPropertiesMap = {
   $el: (i) => i.vnode.el,
+  $slots: (i) => i.slots,
 };
 
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {

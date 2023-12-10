@@ -1,4 +1,5 @@
 import { ShapeFlags } from "@/shared/ShapeFlags";
+import { RawSlots } from "./componentSlots";
 
 export type VNodeTypes = string | VNode;
 
@@ -17,7 +18,11 @@ type VNodeChildAtom =
 
 export type VNodeArrayChildren = Array<VNodeArrayChildren | VNodeChildAtom>;
 
-export type VNodeNormalizedChildren = string | VNodeArrayChildren | null;
+export type VNodeNormalizedChildren =
+  | string
+  | VNodeArrayChildren
+  | RawSlots
+  | null;
 
 export interface VNode<ExtraProps = { [key: string]: any }> {
   type: VNodeTypes;
@@ -43,6 +48,13 @@ export function createVNode(type: VNodeTypes, props?, children?): VNode {
     vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
   } else if (Array.isArray(vnode.children)) {
     vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
+  }
+
+  //  组件 且 children是对象类型的 判断为slots
+  if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+    if (typeof children === "object") {
+      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN;
+    }
   }
 
   return vnode;
