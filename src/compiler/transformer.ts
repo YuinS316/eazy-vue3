@@ -1,6 +1,38 @@
+import {
+  createArrayExperssion,
+  createCallExperssion,
+  createIdentifier,
+  createStringLiteral,
+} from "./ast";
+import { ASTNode, RootNode } from "./parser";
+
+//  node transform function
+export type NodeTransformFunc = (
+  node: any,
+  context: Context
+) => (() => void) | void;
+
+export interface Context {
+  //  当前操作的节点
+  currentNode: any;
+  //  进行子节点遍历的时候，用栈去存储
+  currentNodeStack: any[];
+  //  父节点
+  parent: any;
+  //  当前父节点的children中的位置索引
+  childIndex: number;
+  //  替换节点的函数
+  replaceNode(node): void;
+  //  移除节点
+  removeNode(): void;
+  //  转换函数
+  nodeTransforms: NodeTransformFunc[];
+}
+
 /**
- * 转换器，将templateAST转换为JavascriptAST
+ * 内部的转换器s
  * @param templateAST
+ * @param initContext
  */
 export function transformer(templateAST, initContext?: Partial<Context>) {
   const context: Context = {
@@ -26,6 +58,16 @@ export function transformer(templateAST, initContext?: Partial<Context>) {
   }
 
   traverseNode(templateAST, context);
+}
+
+/**
+ * 转换器，将templateAST转换为JavascriptAST
+ * @param templateAST
+ */
+export function transform(templateAST) {
+  transformer(templateAST, {
+    nodeTransforms: [transformRoot, transformText, transformElement],
+  });
 }
 
 /**
@@ -76,25 +118,68 @@ function traverseNode(templateAST, context: Context) {
   }
 }
 
-//  node transform function
-export type NodeTransformFunc = (
-  node: any,
-  context: Context
-) => (() => void) | void;
+/**
+ * 转换根节点
+ * @param node
+ */
+function transformRoot(node: RootNode | ASTNode) {
+  return () => {
+    if (node.type !== "Root") {
+      return;
+    }
 
-export interface Context {
-  //  当前操作的节点
-  currentNode: any;
-  //  进行子节点遍历的时候，用栈去存储
-  currentNodeStack: any[];
-  //  父节点
-  parent: any;
-  //  当前父节点的children中的位置索引
-  childIndex: number;
-  //  替换节点的函数
-  replaceNode(node): void;
-  //  移除节点
-  removeNode(): void;
-  //  转换函数
-  nodeTransforms: NodeTransformFunc[];
+    //  暂时不考虑多根节点的情况
+    const vnodeJSAST = node.children[0].jsNode!;
+
+    node.jsNode = {
+      type: "FunctionDeclaration",
+      id: createIdentifier("render"),
+      params: [],
+      body: [
+        {
+          type: "ReturnStatement",
+          return: vnodeJSAST,
+        },
+      ],
+    };
+  };
+}
+
+/**
+ * 转换文本节点
+ * @param node
+ */
+function transformText(node: ASTNode) {
+  if (node.type !== "Text") {
+    return;
+  }
+
+  node.jsNode = createStringLiteral(node.content);
+}
+
+/**
+ * 转换元素节点
+ * @param node
+ */
+function transformElement(node: ASTNode) {
+  //  在转换代码退出阶段的时候执行
+  //  此时可以保证该标签下的所有节点已经处理完成
+  return () => {
+    if (node.type !== "Element") {
+      return;
+    }
+
+    //  h("div", [])
+    const callExp = createCallExperssion("h", [createStringLiteral(node.tag)]);
+
+    if (node.children.length <= 1) {
+      callExp.arguments.push(node.children[0].jsNode!);
+    } else {
+      callExp.arguments.push(
+        createArrayExperssion(node.children.map((c) => c.jsNode!))
+      );
+    }
+
+    node.jsNode = callExp;
+  };
 }

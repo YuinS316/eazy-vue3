@@ -1,22 +1,29 @@
+import { CallExperssion, FunctionDeclaration, StringLiteral } from "./ast";
 import { tokenize } from "./tokenize";
 
 export interface RootNode {
   type: "Root";
   children: ASTNode[];
+
+  jsNode?: FunctionDeclaration;
 }
 
 export interface ElementNode {
   type: "Element";
   tag: string;
   children: ASTNode[];
+
+  jsNode?: CallExperssion;
 }
 
 export interface TextNode {
   type: "Text";
   content: string;
+  //  js ast 节点
+  jsNode?: StringLiteral;
 }
 
-export type ASTNode = RootNode | ElementNode | TextNode;
+export type ASTNode = ElementNode | TextNode;
 
 /**
  * 解释器，将template转成template AST
@@ -32,7 +39,7 @@ export function parser(template: string) {
   };
 
   //  需要一个栈去存储当前处理的token对应的节点
-  const elementStack: ASTNode[] = [root];
+  const elementStack: (RootNode | ASTNode)[] = [root];
 
   //  持续处理tokens，直到tokens被处理完
   while (tokens.length) {
